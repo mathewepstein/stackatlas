@@ -1,0 +1,3 @@
+[project]
+name = "acme-py-helpers"
+dependencies = ["requests"]

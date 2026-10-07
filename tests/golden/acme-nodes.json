@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "org": "acme",
+  "nodes": [
+    {"id": "repo:admin-next", "name": "admin-next", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:billing-api", "name": "billing-api", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:checkout-ui", "name": "checkout-ui", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:deploy-charts", "name": "deploy-charts", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:gateway-node", "name": "gateway-node", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:go-kit", "name": "go-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:handbook", "name": "handbook", "kind": "unknown", "layer": "unknown", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:inventory-svc", "name": "inventory-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:java-commons", "name": "java-commons", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:notifications-worker", "name": "notifications-worker", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:orders-orchestration", "name": "orders-orchestration", "kind": "service", "layer": "orchestration", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:orders-service", "name": "orders-service", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:platform-infra", "name": "platform-infra", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:pricing-svc", "name": "pricing-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:py-helpers", "name": "py-helpers", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:ui-kit", "name": "ui-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:web-portal", "name": "web-portal", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []}
+  ],
+  "edges": []
+}

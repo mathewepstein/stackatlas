@@ -1,0 +1,6 @@
+{
+  "name": "@acme/ui-kit",
+  "main": "dist/index.js",
+  "peerDependencies": { "react": ">=18" },
+  "devDependencies": { "react": "^18.3.1", "vite": "^5.4.0" }
+}

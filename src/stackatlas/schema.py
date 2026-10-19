@@ -1,10 +1,10 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from pydantic.alias_generators import to_camel
 
-Kind = Literal["frontend", "service", "infra", "library", "unknown"]
+Kind = Literal["frontend", "service", "infra", "library", "unknown", "external"]
 EdgeType = Literal["http", "event", "deploy", "datastore", "depends"]
 Confidence = Literal["exact", "heuristic"]
 
@@ -49,8 +49,20 @@ class Graph(_Model):
     edges: list[Edge] = Field(default_factory=list)
 
 
+class Unresolved(_Model):
+    ref: str
+    kind: Literal["host", "name"]
+    count: int
+    repos: list[str] = Field(default_factory=list)
+    evidence: list[Evidence] = Field(default_factory=list)
+
+
 def dump_graph(graph: Graph) -> str:
     return graph.model_dump_json(by_alias=True, indent=2)
+
+
+def dump_unresolved(items: list[Unresolved]) -> str:
+    return TypeAdapter(list[Unresolved]).dump_json(items, by_alias=True, indent=2).decode()
 
 
 def graph_json_schema() -> dict[str, Any]:

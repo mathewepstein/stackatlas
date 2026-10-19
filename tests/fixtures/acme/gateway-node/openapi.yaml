@@ -1,0 +1,5 @@
+openapi: 3.0.0
+info:
+  title: Acme Gateway
+servers:
+  - url: https://api.acme.com

@@ -9,7 +9,7 @@ import typer
 
 from stackatlas.config import load_config
 from stackatlas.scan import build_graph, discover_github, discover_local
-from stackatlas.schema import dump_graph, graph_json_schema
+from stackatlas.schema import dump_graph, dump_unresolved, graph_json_schema
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
@@ -58,10 +58,13 @@ def scan(
             typer.echo(f"skipped {name}: clone failed", err=True)
         owner = org
 
-    graph = build_graph(owner, repos, cfg)
+    result = build_graph(owner, repos, cfg)
+    graph = result.graph
     out.mkdir(parents=True, exist_ok=True)
     (out / "graph.json").write_text(dump_graph(graph))
-    typer.echo(f"{len(graph.nodes)} nodes → {out / 'graph.json'}")
+    (out / "unresolved.json").write_text(dump_unresolved(result.unresolved))
+    typer.echo(f"{len(graph.nodes)} nodes, {len(graph.edges)} edges → {out / 'graph.json'}")
+    typer.echo(f"{len(result.unresolved)} unresolved → {out / 'unresolved.json'}")
 
 
 @app.command()

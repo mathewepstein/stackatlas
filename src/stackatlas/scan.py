@@ -4,10 +4,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from stackatlas.aliases import build_index
 from stackatlas.classify import classify_repo
 from stackatlas.config import Config
+from stackatlas.detectors import run_detectors
 from stackatlas.github import filter_repos, list_repos
-from stackatlas.schema import Graph, Node
+from stackatlas.resolve import resolve
+from stackatlas.schema import Graph, Kind, Node, Unresolved
 from stackatlas.sync import head_sha, sync_repo
 
 
@@ -18,6 +21,12 @@ class ScannedRepo:
     sha: str | None = None
     full_name: str | None = None
     url: str | None = None
+
+
+@dataclass(frozen=True)
+class ScanResult:
+    graph: Graph
+    unresolved: list[Unresolved]
 
 
 def discover_local(root: Path, config: Config | None = None) -> list[ScannedRepo]:
@@ -73,12 +82,14 @@ def discover_github(
     return sorted(scanned, key=lambda r: r.name), sorted(failed)
 
 
-def build_graph(org: str, repos: list[ScannedRepo], config: Config) -> Graph:
+def build_graph(org: str, repos: list[ScannedRepo], config: Config) -> ScanResult:
     nodes = []
+    kinds: dict[str, Kind] = {}
     for repo in repos:
         override = config.overrides.get(repo.name)
         kind = (override and override.kind) or classify_repo(repo.path)
         layer = (override and override.layer) or config.layer_for(repo.name, kind)
+        kinds[repo.name] = kind
         nodes.append(
             Node(
                 id=f"repo:{repo.name}",
@@ -90,8 +101,12 @@ def build_graph(org: str, repos: list[ScannedRepo], config: Config) -> Graph:
                 sha=repo.sha,
             )
         )
-    return Graph(
+    index = build_index(repos, kinds, config)
+    edges, externals, unresolved = resolve(run_detectors(repos, config), index, config, repos)
+    graph = Graph(
         org=org,
         generated_at=datetime.now(UTC),
-        nodes=sorted(nodes, key=lambda n: n.id),
+        nodes=sorted(nodes + externals, key=lambda n: n.id),
+        edges=edges,
     )
+    return ScanResult(graph, unresolved)

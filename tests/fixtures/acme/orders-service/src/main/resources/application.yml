@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: orders-service
+  datasource:
+    url: jdbc:postgresql://orders-db:5432/orders
+inventory:
+  base-url: ${INVENTORY_URL:http://inventory-svc:8080}

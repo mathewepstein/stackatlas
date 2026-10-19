@@ -1,0 +1,15 @@
+[
+  {"ref": "analytics.thirdparty.io", "kind": "host", "count": 2, "repos": ["web-portal"], "evidence": [
+    {"path": ".env.production", "line": 2, "snippet": "VITE_ANALYTICS_URL=https://analytics.thirdparty.io", "url": null},
+    {"path": "src/analytics.ts", "line": 1, "snippet": "const endpoint = import.meta.env.VITE_ANALYTICS_URL", "url": null}
+  ]},
+  {"ref": "api.exchangerate.host", "kind": "host", "count": 1, "repos": ["pricing-svc"], "evidence": [
+    {"path": "internal/fx/client.go", "line": 5, "snippet": "const ratesURL = \"https://api.exchangerate.host/latest\"", "url": null}
+  ]},
+  {"ref": "hooks.slack.com", "kind": "host", "count": 1, "repos": ["notifications-worker"], "evidence": [
+    {"path": "worker.py", "line": 5, "snippet": "SLACK_WEBHOOK = \"https://hooks.slack.com/services/example\"", "url": null}
+  ]},
+  {"ref": "orders", "kind": "name", "count": 1, "repos": ["gateway-node"], "evidence": [
+    {"path": "src/routes.js", "line": 2, "snippet": "const ORDERS_URL = process.env.ORDERS_URL;", "url": null}
+  ]}
+]

@@ -29,6 +29,31 @@ def test_includes_respects_globs():
     assert not config.includes("billing-api")
 
 
+def test_loads_aliases_ignore_hosts_and_envs(tmp_path):
+    path = tmp_path / "stackatlas.yml"
+    path.write_text(
+        "aliases:\n  orders-service: ['orders.acme.com', 'orders-legacy']\n"
+        "ignore_hosts: ['*.corp.acme.com']\n"
+        "envs:\n  prod: ['prd']\n"
+    )
+    config = load_config(path)
+    assert config.aliases == {"orders-service": ["orders.acme.com", "orders-legacy"]}
+    assert config.ignores_host("x.corp.acme.com")
+    assert not config.ignores_host("localhost")
+    assert config.envs == {"prod": ["prd"]}
+
+
+def test_default_ignore_hosts_and_envs():
+    config = Config()
+    assert config.ignores_host("localhost")
+    assert config.ignores_host("127.0.0.1")
+    assert config.ignores_host("api.example.com")
+    assert config.ignores_host("schema.org") and config.ignores_host("www.linkedin.com")
+    assert config.ignores_host("github.com") and not config.ignores_host("api.github.com")
+    assert not config.ignores_host("orders.acme.com")
+    assert "dev" in config.envs and "stage" in config.envs and "prod" in config.envs
+
+
 def test_layer_rules_then_kind_default():
     config = Config(layers={"orchestration": ["*-orchestration"]})
     assert config.layer_for("orders-orchestration", "service") == "orchestration"

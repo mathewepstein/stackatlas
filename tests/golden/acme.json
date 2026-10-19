@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "org": "acme",
+  "nodes": [
+    {"id": "external:analytics.thirdparty.io", "name": "analytics.thirdparty.io", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "external:api.exchangerate.host", "name": "api.exchangerate.host", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "external:hooks.slack.com", "name": "hooks.slack.com", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:admin-next", "name": "admin-next", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:billing-api", "name": "billing-api", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:checkout-ui", "name": "checkout-ui", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:deploy-charts", "name": "deploy-charts", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:gateway-node", "name": "gateway-node", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:go-kit", "name": "go-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:handbook", "name": "handbook", "kind": "unknown", "layer": "unknown", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:inventory-svc", "name": "inventory-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:java-commons", "name": "java-commons", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:notifications-worker", "name": "notifications-worker", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:orders-orchestration", "name": "orders-orchestration", "kind": "service", "layer": "orchestration", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:orders-service", "name": "orders-service", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:platform-infra", "name": "platform-infra", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:pricing-svc", "name": "pricing-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:py-helpers", "name": "py-helpers", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:ui-kit", "name": "ui-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
+    {"id": "repo:web-portal", "name": "web-portal", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []}
+  ],
+  "edges": [
+    {"source": "repo:admin-next", "target": "repo:gateway-node", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": ".env.production", "line": 1, "snippet": "NEXT_PUBLIC_API_URL=https://api.acme.com", "url": null},
+      {"path": "lib/api.ts", "line": 1, "snippet": "export const api = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`)", "url": null}
+    ]},
+    {"source": "repo:billing-api", "target": "repo:inventory-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
+      {"path": ".env", "line": 1, "snippet": "INVENTORY_URL=http://inventory-svc.internal:8080", "url": null},
+      {"path": "app/clients.py", "line": 6, "snippet": "INVENTORY_URL = os.environ[\"INVENTORY_URL\"]", "url": null}
+    ]},
+    {"source": "repo:billing-api", "target": "repo:pricing-svc", "type": "http", "confidence": "exact", "envs": [], "evidence": [
+      {"path": "app/clients.py", "line": 5, "snippet": "PRICING_URL = os.environ.get(\"PRICING_URL\", \"http://pricing-svc:8080\")", "url": null}
+    ]},
+    {"source": "repo:checkout-ui", "target": "repo:gateway-node", "type": "http", "confidence": "exact", "envs": [], "evidence": [
+      {"path": ".env", "line": 1, "snippet": "VUE_APP_GATEWAY_URL=https://api.acme.com", "url": null},
+      {"path": "src/http.ts", "line": 3, "snippet": "export const http = axios.create({ baseURL: process.env.VUE_APP_GATEWAY_URL })", "url": null}
+    ]},
+    {"source": "repo:gateway-node", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
+      {"path": "src/routes.js", "line": 3, "snippet": "const BILLING_URL = process.env.BILLING_URL;", "url": null}
+    ]},
+    {"source": "repo:inventory-svc", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
+      {"path": "internal/pricing/client.go", "line": 10, "snippet": "base := os.Getenv(\"PRICING_URL\")", "url": null}
+    ]},
+    {"source": "repo:notifications-worker", "target": "external:hooks.slack.com", "type": "http", "confidence": "exact", "envs": [], "evidence": [
+      {"path": "worker.py", "line": 5, "snippet": "SLACK_WEBHOOK = \"https://hooks.slack.com/services/example\"", "url": null}
+    ]},
+    {"source": "repo:notifications-worker", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
+      {"path": "worker.py", "line": 6, "snippet": "BILLING_URL = os.getenv(\"BILLING_URL\")", "url": null}
+    ]},
+    {"source": "repo:orders-orchestration", "target": "repo:orders-service", "type": "http", "confidence": "exact", "envs": [], "evidence": [
+      {"path": "src/main/java/com/acme/orders/OrdersClient.java", "line": 5, "snippet": "@FeignClient(name = \"orders-service\")", "url": null}
+    ]},
+    {"source": "repo:orders-orchestration", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": ["dev"], "evidence": [
+      {"path": "src/main/java/com/acme/orders/PricingClient.java", "line": 5, "snippet": "@FeignClient( name = \"pricing\", url = \"${pricing.url}\" )", "url": null},
+      {"path": "src/main/resources/application-dev.yml", "line": 2, "snippet": "url: https://dev-pricing.acme.com", "url": null},
+      {"path": "src/main/resources/application.yml", "line": 5, "snippet": "url: https://pricing.acme.com", "url": null}
+    ]},
+    {"source": "repo:orders-service", "target": "repo:inventory-svc", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "src/main/java/com/acme/orders/InventoryClient.java", "line": 6, "snippet": "@Value(\"${inventory.base-url}\")", "url": null},
+      {"path": "src/main/resources/application-prod.properties", "line": 1, "snippet": "inventory.base-url=https://inventory.acme.com", "url": null},
+      {"path": "src/main/resources/application.yml", "line": 7, "snippet": "base-url: ${INVENTORY_URL:http://inventory-svc:8080}", "url": null}
+    ]},
+    {"source": "repo:pricing-svc", "target": "external:api.exchangerate.host", "type": "http", "confidence": "exact", "envs": [], "evidence": [
+      {"path": "internal/fx/client.go", "line": 5, "snippet": "const ratesURL = \"https://api.exchangerate.host/latest\"", "url": null}
+    ]},
+    {"source": "repo:web-portal", "target": "external:analytics.thirdparty.io", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": ".env.production", "line": 2, "snippet": "VITE_ANALYTICS_URL=https://analytics.thirdparty.io", "url": null},
+      {"path": "src/analytics.ts", "line": 1, "snippet": "const endpoint = import.meta.env.VITE_ANALYTICS_URL", "url": null}
+    ]},
+    {"source": "repo:web-portal", "target": "repo:orders-orchestration", "type": "http", "confidence": "exact", "envs": ["dev", "prod"], "evidence": [
+      {"path": ".env.development", "line": 1, "snippet": "VITE_ORDERS_URL=https://dev-orders.acme.com", "url": null},
+      {"path": ".env.production", "line": 1, "snippet": "VITE_ORDERS_URL=https://orders.acme.com", "url": null},
+      {"path": "src/api.ts", "line": 1, "snippet": "const base = import.meta.env.VITE_ORDERS_URL", "url": null}
+    ]}
+  ]
+}

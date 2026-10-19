@@ -6,6 +6,21 @@ from pydantic import BaseModel, Field
 
 from stackatlas.schema import Kind
 
+DEFAULT_IGNORE_HOSTS = [
+    "localhost", "127.0.0.1", "0.0.0.0", "*.local",
+    "example.com", "*.example.com", "example.org", "*.example.org",
+    "www.w3.org", "json-schema.org", "schemas.xmlsoap.org", "schema.org", "*.schema.org",
+    "github.com", "www.github.com", "*.wikipedia.org",
+    "twitter.com", "www.twitter.com", "x.com", "facebook.com", "www.facebook.com",
+    "linkedin.com", "www.linkedin.com", "instagram.com", "www.instagram.com",
+    "youtube.com", "www.youtube.com", "youtu.be", "vimeo.com", "player.vimeo.com",
+]
+DEFAULT_ENVS = {
+    "dev": ["dev", "development", "develop", "local"],
+    "stage": ["stage", "staging", "qa", "uat", "preprod"],
+    "prod": ["prod", "production", "live"],
+}
+
 
 class Override(BaseModel):
     kind: Kind | None = None
@@ -19,6 +34,14 @@ class Config(BaseModel):
     skip_forks: bool = True
     layers: dict[str, list[str]] = Field(default_factory=dict)
     overrides: dict[str, Override] = Field(default_factory=dict)
+    aliases: dict[str, list[str]] = Field(default_factory=dict)
+    ignore_hosts: list[str] = Field(default_factory=lambda: list(DEFAULT_IGNORE_HOSTS))
+    envs: dict[str, list[str]] = Field(
+        default_factory=lambda: {k: list(v) for k, v in DEFAULT_ENVS.items()}
+    )
+
+    def ignores_host(self, host: str) -> bool:
+        return any(fnmatch(host, p) for p in self.ignore_hosts)
 
     def includes(self, name: str) -> bool:
         return any(fnmatch(name, p) for p in self.include) and not any(

@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: orders-orchestration
+pricing:
+  url: https://pricing.acme.com

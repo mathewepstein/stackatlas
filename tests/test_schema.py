@@ -1,7 +1,15 @@
 import json
 from datetime import UTC, datetime
 
-from stackatlas.schema import Graph, Node, dump_graph, graph_json_schema
+from stackatlas.schema import (
+    Evidence,
+    Graph,
+    Node,
+    Unresolved,
+    dump_graph,
+    dump_unresolved,
+    graph_json_schema,
+)
 
 
 def test_graph_serializes_camel_case_with_schema_version():
@@ -15,6 +23,18 @@ def test_graph_serializes_camel_case_with_schema_version():
     assert data["generatedAt"].startswith("2026-01-01")
     assert data["nodes"][0]["layer"] == "frontend"
     assert data["edges"] == []
+
+
+def test_unresolved_dumps_as_camel_case_list():
+    items = [
+        Unresolved(
+            ref="x.io", kind="host", count=1, repos=["web"],
+            evidence=[Evidence(path="a.ts", line=1, snippet="s")],
+        )
+    ]
+    data = json.loads(dump_unresolved(items))
+    assert data[0]["ref"] == "x.io"
+    assert data[0]["evidence"][0] == {"path": "a.ts", "line": 1, "snippet": "s", "url": None}
 
 
 def test_json_schema_describes_nodes_and_edges():

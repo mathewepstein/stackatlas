@@ -1,0 +1,1 @@
+var e=new URL(`elk-worker.min-r_yRvuMO.js`,import.meta.url).href;export{e as default};

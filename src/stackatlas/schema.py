@@ -3,6 +3,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from pydantic.alias_generators import to_camel
+from pydantic.json_schema import models_json_schema
 
 Kind = Literal[
     "frontend", "service", "infra", "library", "group", "unknown", "external",
@@ -13,7 +14,11 @@ Confidence = Literal["exact", "heuristic", "observed"]
 
 
 class _Model(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        json_schema_serialization_defaults_required=True,
+    )
 
 
 class Evidence(_Model):
@@ -88,3 +93,22 @@ def dump_unresolved(items: list[Unresolved]) -> str:
 
 def graph_json_schema() -> dict[str, Any]:
     return Graph.model_json_schema(by_alias=True)
+
+
+def viewer_json_schema() -> dict[str, Any]:
+    _, schema = models_json_schema(
+        [(Graph, "serialization"), (Unresolved, "serialization")],
+        by_alias=True,
+        ref_template="#/$defs/{model}",
+    )
+    return {
+        "title": "Outputs",
+        "type": "object",
+        "properties": {
+            "graph": {"$ref": "#/$defs/Graph"},
+            "unresolved": {"type": "array", "items": {"$ref": "#/$defs/Unresolved"}},
+        },
+        "required": ["graph", "unresolved"],
+        "additionalProperties": False,
+        "$defs": schema["$defs"],
+    }

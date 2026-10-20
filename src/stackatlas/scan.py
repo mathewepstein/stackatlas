@@ -116,7 +116,8 @@ def build_graph(
         edges=_merge_edges(edges + deploy),
     )
     if runtime:
-        graph, unresolved = apply_runtime(graph, unresolved, index, config, runtime)
+        generic = {d.id for d in declared if d.generic}
+        graph, unresolved = apply_runtime(graph, unresolved, index, config, runtime, generic)
     return ScanResult(graph, unresolved)
 
 
@@ -154,6 +155,7 @@ def _declared(
                 aliases=tuple(dict.fromkeys(m.aliases + d.aliases)),
                 envs=tuple(sorted(set(m.envs + d.envs))),
                 endpoints=tuple(sorted(set(m.endpoints + d.endpoints))),
+                generic=m.generic and d.generic,
             )
         else:
             merged[d.id] = d

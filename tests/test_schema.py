@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 from stackatlas.schema import (
     Evidence,
@@ -9,6 +10,7 @@ from stackatlas.schema import (
     dump_graph,
     dump_unresolved,
     graph_json_schema,
+    viewer_json_schema,
 )
 
 
@@ -40,3 +42,10 @@ def test_unresolved_dumps_as_camel_case_list():
 def test_json_schema_describes_nodes_and_edges():
     schema = graph_json_schema()
     assert {"nodes", "edges", "schemaVersion"} <= set(schema["properties"])
+
+
+def test_viewer_schema_file_is_current():
+    path = Path(__file__).parents[1] / "viewer" / "src" / "schema.json"
+    assert json.loads(path.read_text()) == viewer_json_schema(), (
+        "run `stackatlas schema --all > viewer/src/schema.json && pnpm -C viewer gen:types`"
+    )

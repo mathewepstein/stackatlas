@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from stackatlas.config import Config
-from stackatlas.github import RepoInfo, filter_repos, list_repos
+from stackatlas.github import RepoInfo, check_owner, filter_repos, list_repos
 
 NEXT_PAGE = "https://api.github.com/orgs/acme/repos?per_page=100&page=2"
 
@@ -60,6 +60,27 @@ def test_list_repos_raises_on_auth_failure():
 
     with pytest.raises(httpx.HTTPStatusError):
         list_repos("acme", "bad", client=_client(handler))
+
+
+def test_check_owner_counts_visible_repos_for_org_or_user():
+    last = "https://api.github.com/organizations/1/repos?per_page=1&page=82"
+
+    def handler(request):
+        assert request.url.params["per_page"] == "1"
+        if request.url.path == "/orgs/acme/repos":
+            link = f'<{NEXT_PAGE}>; rel="next", <{last}>; rel="last"'
+            return httpx.Response(200, json=[_repo("a")], headers={"Link": link})
+        if request.url.path == "/orgs/someone/repos":
+            return httpx.Response(404, json={})
+        return httpx.Response(200, json=[_repo("solo")])
+
+    assert check_owner("acme", "tok", client=_client(handler)) == 82
+    assert check_owner("someone", "tok", client=_client(handler)) == 1
+
+
+def test_check_owner_raises_when_missing():
+    with pytest.raises(httpx.HTTPStatusError):
+        check_owner("x", "tok", client=_client(lambda r: httpx.Response(404, json={})))
 
 
 def test_filter_repos_drops_archived_forks_and_excluded():

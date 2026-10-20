@@ -87,6 +87,7 @@ class Declared:
     aliases: tuple[str, ...] = ()
     envs: tuple[str, ...] = ()
     endpoints: tuple[str, ...] = ()
+    generic: bool = False
 
 
 @dataclass(frozen=True)

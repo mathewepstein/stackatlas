@@ -58,7 +58,8 @@ class _Chart:
         group = _Group(self.repo, name, self.config, found)
         templates = sorted((self.chart / "templates").glob("*.y*ml"))
         env_for = lambda token: canonical_env(token, self.config.envs)  # noqa: E731
-        for env, values in chart_values(self.chart, env_for).items():
+        variants = chart_values(self.chart, env_for)
+        for env, values in variants.items():
             docs = []
             for template in templates:
                 rel = template.relative_to(self.root).as_posix()
@@ -68,7 +69,11 @@ class _Chart:
                     docs.append((doc, rel, lines))
             group.handle(docs, env, _value_hosts(values))
         self.out.refs.extend(found.refs)
-        self.out.declared.extend(_merged(found.declared))
+        declared = _merged(found.declared)
+        if len(variants) == 1:
+            tokens = set(name.split("-"))
+            declared = [replace(d, generic=not tokens & set(d.name.split("-"))) for d in declared]
+        self.out.declared.extend(declared)
 
 
 def _merged(items: list[Declared]) -> list[Declared]:

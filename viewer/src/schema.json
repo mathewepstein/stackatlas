@@ -1,0 +1,410 @@
+{
+  "title": "Outputs",
+  "type": "object",
+  "properties": {
+    "graph": {
+      "$ref": "#/$defs/Graph"
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Unresolved"
+      }
+    }
+  },
+  "required": [
+    "graph",
+    "unresolved"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "CiEntry": {
+      "properties": {
+        "system": {
+          "title": "System",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "repo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repo"
+        },
+        "registries": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Registries",
+          "type": "array"
+        }
+      },
+      "required": [
+        "system",
+        "path",
+        "repo",
+        "registries"
+      ],
+      "title": "CiEntry",
+      "type": "object"
+    },
+    "Edge": {
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "http",
+            "event",
+            "deploy",
+            "datastore",
+            "depends"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "confidence": {
+          "enum": [
+            "exact",
+            "heuristic",
+            "observed"
+          ],
+          "title": "Confidence",
+          "type": "string"
+        },
+        "envs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Envs",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed"
+        },
+        "traces": {
+          "items": {
+            "$ref": "#/$defs/Trace"
+          },
+          "title": "Traces",
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "type",
+        "confidence",
+        "envs",
+        "evidence",
+        "observed",
+        "traces"
+      ],
+      "title": "Edge",
+      "type": "object"
+    },
+    "Evidence": {
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "line": {
+          "title": "Line",
+          "type": "integer"
+        },
+        "snippet": {
+          "title": "Snippet",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "path",
+        "line",
+        "snippet",
+        "url"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Graph": {
+      "properties": {
+        "schemaVersion": {
+          "const": 1,
+          "default": 1,
+          "title": "Schemaversion",
+          "type": "integer"
+        },
+        "org": {
+          "title": "Org",
+          "type": "string"
+        },
+        "generatedAt": {
+          "format": "date-time",
+          "title": "Generatedat",
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/Node"
+          },
+          "title": "Nodes",
+          "type": "array"
+        },
+        "edges": {
+          "items": {
+            "$ref": "#/$defs/Edge"
+          },
+          "title": "Edges",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "org",
+        "generatedAt",
+        "nodes",
+        "edges"
+      ],
+      "title": "Graph",
+      "type": "object"
+    },
+    "Node": {
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "frontend",
+            "service",
+            "infra",
+            "library",
+            "group",
+            "unknown",
+            "external",
+            "gateway",
+            "function",
+            "datastore",
+            "queue",
+            "topic",
+            "bucket",
+            "workload"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "layer": {
+          "title": "Layer",
+          "type": "string"
+        },
+        "repo": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repo"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "sha": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent"
+        },
+        "envs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Envs",
+          "type": "array"
+        },
+        "endpoints": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Endpoints",
+          "type": "array"
+        },
+        "ci": {
+          "items": {
+            "$ref": "#/$defs/CiEntry"
+          },
+          "title": "Ci",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "layer",
+        "repo",
+        "url",
+        "sha",
+        "parent",
+        "envs",
+        "endpoints",
+        "ci"
+      ],
+      "title": "Node",
+      "type": "object"
+    },
+    "Trace": {
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "env": {
+          "title": "Env",
+          "type": "string"
+        },
+        "start": {
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "format": "date-time",
+          "title": "End",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "env",
+        "start",
+        "end"
+      ],
+      "title": "Trace",
+      "type": "object"
+    },
+    "Unresolved": {
+      "properties": {
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "host",
+            "name",
+            "service"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "repos": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Repos",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ref",
+        "kind",
+        "count",
+        "repos",
+        "evidence"
+      ],
+      "title": "Unresolved",
+      "type": "object"
+    }
+  }
+}

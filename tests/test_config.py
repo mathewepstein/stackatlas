@@ -23,7 +23,10 @@ def test_loads_yaml(tmp_path):
 
 
 def test_runtime_defaults():
-    runtime = Config().runtime
+    config = Config()
+    assert (config.org, config.local) == (None, None)
+    runtime = config.runtime
+    assert runtime.sources == []
     assert runtime.datadog.envs == {} and runtime.datadog.window_days == 7
     assert runtime.integrations == {
         "mysql": "mysql", "redis": "redis",

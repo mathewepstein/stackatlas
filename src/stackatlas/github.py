@@ -17,13 +17,30 @@ class RepoInfo(BaseModel):
     pushed_at: str | None = None
 
 
-def list_repos(owner: str, token: str, client: httpx.Client | None = None) -> list[RepoInfo]:
-    client = client or httpx.Client(base_url=API_URL, timeout=30)
-    headers = {
+def _headers(token: str) -> dict[str, str]:
+    return {
         "Authorization": f"Bearer {token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
     }
+
+
+def check_owner(owner: str, token: str, client: httpx.Client | None = None) -> int:
+    client = client or httpx.Client(base_url=API_URL, timeout=30)
+    params = {"per_page": 1}
+    response = client.get(f"/orgs/{owner}/repos", params=params, headers=_headers(token))
+    if response.status_code == 404:
+        response = client.get(f"/users/{owner}/repos", params=params, headers=_headers(token))
+    response.raise_for_status()
+    last = response.links.get("last", {}).get("url")
+    if last:
+        return int(httpx.URL(last).params.get("page", "1"))
+    return len(response.json())
+
+
+def list_repos(owner: str, token: str, client: httpx.Client | None = None) -> list[RepoInfo]:
+    client = client or httpx.Client(base_url=API_URL, timeout=30)
+    headers = _headers(token)
     first = client.get(f"/orgs/{owner}/repos", params={"per_page": 100}, headers=headers)
     if first.status_code == 404:
         first = client.get(f"/users/{owner}/repos", params={"per_page": 100}, headers=headers)

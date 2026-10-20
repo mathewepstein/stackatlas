@@ -6,9 +6,11 @@ from typing import Protocol
 
 import httpx
 
-from stackatlas.aliases import AliasIndex, name_candidates
+from stackatlas.aliases import GENERIC_APP_NAMES, SERVICE_SUFFIXES, AliasIndex, name_candidates
 from stackatlas.config import Config
 from stackatlas.schema import Edge, Graph, Trace, Unresolved
+
+GLUED_SUFFIXES = sorted(SERVICE_SUFFIXES, key=len, reverse=True)
 
 
 class MissingCredentials(Exception):
@@ -69,17 +71,33 @@ class Datadog:
         return data
 
 
-def datadog_source(config: Config, environ: Mapping[str, str]) -> Datadog:
+def datadog_keys(environ: Mapping[str, str]) -> tuple[str, str, str] | None:
     api_key = environ.get("DD_API_KEY") or environ.get("DATADOG_API_KEY")
     app_key = environ.get("DD_APP_KEY") or environ.get("DATADOG_APP_KEY")
     if not api_key or not app_key:
+        return None
+    return api_key, app_key, environ.get("DD_SITE") or "datadoghq.com"
+
+
+def datadog_source(config: Config, environ: Mapping[str, str]) -> Datadog:
+    keys = datadog_keys(environ)
+    if not keys:
         raise MissingCredentials(
             "Datadog needs DD_API_KEY and DD_APP_KEY (or DATADOG_API_KEY and DATADOG_APP_KEY)."
         )
     settings = config.runtime.datadog
     envs = settings.envs or {env: env for env in config.envs}
-    site = environ.get("DD_SITE") or "datadoghq.com"
-    return Datadog(envs, settings.window_days, api_key, app_key, site)
+    return Datadog(envs, settings.window_days, *keys)
+
+
+def validate_datadog(environ: Mapping[str, str], client: httpx.Client | None = None) -> bool:
+    keys = datadog_keys(environ)
+    if not keys:
+        return False
+    api_key, _, site = keys
+    client = client or httpx.Client(base_url=f"https://api.{site}", timeout=30)
+    response = client.get("/api/v1/validate", headers={"DD-API-KEY": api_key})
+    return response.status_code == 200 and response.json().get("valid") is True
 
 
 def apply_runtime(
@@ -88,20 +106,26 @@ def apply_runtime(
     index: AliasIndex,
     config: Config,
     data: list[RuntimeData],
+    exclude: set[str] | None = None,
 ) -> tuple[Graph, list[Unresolved]]:
-    return _Overlay(graph, index, config, data).run(unresolved)
+    return _Overlay(graph, index, config, data, exclude or set()).run(unresolved)
 
 
 class _Overlay:
     def __init__(
-        self, graph: Graph, index: AliasIndex, config: Config, data: list[RuntimeData]
+        self,
+        graph: Graph,
+        index: AliasIndex,
+        config: Config,
+        data: list[RuntimeData],
+        exclude: set[str],
     ) -> None:
         self.graph = graph
         self.index = index
         self.data = data
         self.integrations = config.runtime.integrations
         self.engines = {e for e in self.integrations.values() if e}
-        self.node_ids = {n.id for n in graph.nodes}
+        self.node_ids = {n.id for n in graph.nodes} - exclude
         self._resolved: dict[str, str | None] = {}
         self.covered: dict[str, set[str]] = defaultdict(set)
         self.seen: dict[tuple[str, str], list[RuntimeData]] = defaultdict(list)
@@ -120,7 +144,13 @@ class _Overlay:
             if target in self.node_ids:
                 return target
         target = self.index.lookup_squashed(name)
-        return target if target in self.node_ids else None
+        if target in self.node_ids:
+            return target
+        for suffix in GLUED_SUFFIXES:
+            base = name.removesuffix(suffix)
+            if base != name and len(base) >= 3 and base[-1].isalnum():
+                return None if base in GENERIC_APP_NAMES else self._lookup(base)
+        return None
 
     def _collect(self, item: RuntimeData) -> None:
         for name in item.services:

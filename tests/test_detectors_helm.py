@@ -45,6 +45,17 @@ def test_fixture_chart_declares_workload(acme):
     assert all(r.path == f"{CHART}/templates/deployment.yaml" for r in refs)
 
 
+def test_chart_with_only_default_values_for_another_name_is_generic(tmp_path, generic_chart):
+    generic_chart(tmp_path)
+    [wl] = helm_k8s.detect_repo("devops", tmp_path, Config()).declared
+    assert (wl.id, wl.generic) == ("workload:helm-deploy/sc", True)
+
+
+def test_app_chart_is_not_generic(acme):
+    [wl] = helm_k8s.detect_repo("deploy-charts", acme / "deploy-charts", Config()).declared
+    assert wl.generic is False
+
+
 def test_raw_manifests_in_manifest_less_repo(tmp_path):
     (tmp_path / "k8s").mkdir()
     (tmp_path / "k8s" / "app.yaml").write_text(

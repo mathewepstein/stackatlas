@@ -33,6 +33,7 @@ class DatadogConfig(BaseModel):
 
 
 class RuntimeConfig(BaseModel):
+    sources: list[str] = Field(default_factory=list)
     datadog: DatadogConfig = Field(default_factory=DatadogConfig)
     integrations: dict[str, str | None] = Field(
         default_factory=lambda: dict(DEFAULT_INTEGRATIONS)
@@ -45,6 +46,8 @@ class Override(BaseModel):
 
 
 class Config(BaseModel):
+    org: str | None = None
+    local: str | None = None
     include: list[str] = Field(default_factory=lambda: ["*"])
     exclude: list[str] = Field(default_factory=list)
     skip_archived: bool = True

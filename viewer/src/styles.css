@@ -1,0 +1,429 @@
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --border: #dcdcd6;
+  --accent: #2f6fde;
+  --warn: #c2410c;
+  --ok: #15803d;
+  --edge: #8a8a84;
+  --frontend: #2f6fde;
+  --gateway: #7c3aed;
+  --service: #0f766e;
+  --workload: #0e7490;
+  --datastore: #b45309;
+  --external: #737373;
+  --infra: #9a3412;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --surface: #20201f;
+    --text: #ececea;
+    --muted: #a3a39d;
+    --border: #3a3a37;
+    --accent: #7aa7ff;
+    --warn: #fb923c;
+    --ok: #4ade80;
+    --edge: #8f8f88;
+    --frontend: #7aa7ff;
+    --gateway: #b794f6;
+    --service: #2dd4bf;
+    --workload: #22d3ee;
+    --datastore: #fbbf24;
+    --external: #a3a3a3;
+    --infra: #fb923c;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.mono,
+code {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+.small {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+
+header h1 {
+  font-size: 16px;
+  margin: 0;
+}
+
+header .org {
+  font-weight: 600;
+}
+
+header nav {
+  display: flex;
+  gap: 4px;
+}
+
+header nav button {
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+header nav button[aria-selected='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+header .status {
+  margin-left: auto;
+}
+
+.workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 220px 1fr 340px;
+  min-height: 0;
+}
+
+.filters {
+  overflow-y: auto;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filters input[type='search'] {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.filters fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.filters legend {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.filters label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.filters label.inline {
+  justify-content: space-between;
+}
+
+.filters select,
+.filters > button {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.canvas {
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel {
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.panel.empty {
+  color: var(--muted);
+}
+
+.panel h2 {
+  font-size: 15px;
+  margin: 0 0 4px;
+  word-break: break-word;
+}
+
+.panel h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 14px 0 6px;
+}
+
+.panel ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.panel .meta {
+  margin: 0 0 4px;
+}
+
+.edge-title button,
+.edge-list button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.edge-list {
+  list-style: none;
+  padding-left: 0 !important;
+}
+
+.edge-list li {
+  padding: 2px 0;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+}
+
+.runtime-seen {
+  color: var(--ok);
+}
+
+.runtime-not-seen {
+  color: var(--warn);
+}
+
+.runtime-uncovered {
+  color: var(--muted);
+}
+
+.evidence {
+  list-style: none;
+  padding-left: 0 !important;
+}
+
+.evidence li {
+  margin-bottom: 8px;
+}
+
+.evidence code {
+  display: block;
+  margin-top: 2px;
+  padding: 4px 6px;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.atlas-node {
+  width: 200px;
+  height: 44px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--node-color, var(--edge));
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.atlas-node .label {
+  font-weight: 600;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atlas-node .kind {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.atlas-node.focus {
+  outline: 2px solid var(--accent);
+}
+
+.atlas-node.dim {
+  opacity: 0.25;
+}
+
+.kind-frontend {
+  --node-color: var(--frontend);
+}
+
+.kind-gateway {
+  --node-color: var(--gateway);
+}
+
+.kind-service,
+.kind-group,
+.kind-library,
+.kind-unknown {
+  --node-color: var(--service);
+}
+
+.kind-workload,
+.kind-function {
+  --node-color: var(--workload);
+}
+
+.kind-datastore,
+.kind-queue,
+.kind-topic,
+.kind-bucket {
+  --node-color: var(--datastore);
+}
+
+.kind-external {
+  --node-color: var(--external);
+}
+
+.kind-infra {
+  --node-color: var(--infra);
+}
+
+.react-flow__edge.atlas-edge .react-flow__edge-path {
+  stroke: var(--edge);
+  stroke-width: 1.4;
+}
+
+.react-flow__edge.conf-heuristic .react-flow__edge-path {
+  stroke-dasharray: 6 4;
+}
+
+.react-flow__edge.conf-observed .react-flow__edge-path {
+  stroke-dasharray: 2 4;
+}
+
+.react-flow__edge.obs-seen .react-flow__edge-path {
+  stroke: var(--ok);
+}
+
+.react-flow__edge.obs-not-seen .react-flow__edge-path {
+  stroke: var(--warn);
+}
+
+.react-flow__edge.lit .react-flow__edge-path {
+  stroke-width: 2.4;
+}
+
+.react-flow__edge.dim {
+  opacity: 0.12;
+}
+
+.loader {
+  max-width: 560px;
+  margin: 15vh auto;
+  padding: 0 16px;
+}
+
+.unresolved {
+  padding: 16px;
+  overflow: auto;
+}
+
+.unresolved table {
+  border-collapse: collapse;
+  width: 100%;
+  background: var(--surface);
+}
+
+.unresolved th,
+.unresolved td {
+  text-align: left;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.unresolved .num {
+  text-align: right;
+}
+
+@media (max-width: 900px) {
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 60vh auto;
+  }
+
+  .filters,
+  .panel {
+    border: none;
+    border-bottom: 1px solid var(--border);
+  }
+}

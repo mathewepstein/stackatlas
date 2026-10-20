@@ -7,19 +7,28 @@ Status: early development. Implemented: repo discovery and classification, HTTP 
 ## Install
 
 ```
-pip install -e ".[dev]"
+pipx install git+https://github.com/mathewepstein/stackatlas
 ```
+
+The viewer ships prebuilt inside the package, so Node is not needed.
 
 ## Usage
 
 ```
-export GITHUB_TOKEN=...            # read-only: contents + metadata
-stackatlas scan --org acme         # clone + scan → ./out/graph.json + unresolved.json
-stackatlas scan --local ~/code     # scan existing checkouts, no GitHub
-stackatlas schema                  # print graph.json JSON Schema
+stackatlas init                    # check GitHub (and Datadog) access, write stackatlas.yml
+stackatlas scan                    # clone + scan → ./out/graph.json + unresolved.json
+stackatlas serve out               # open the viewer at http://127.0.0.1:8000/
 ```
 
-The token is read from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`. It is never written to disk.
+`scan --org acme`, `scan --local ~/code` and `scan --runtime datadog` override what `init` wrote. `stackatlas schema` prints the graph.json JSON Schema.
+
+The GitHub token is read from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token` (read-only: contents + metadata). Datadog keys are read from `DD_API_KEY`/`DD_APP_KEY` (or `DATADOG_API_KEY`/`DATADOG_APP_KEY`) and `DD_SITE`. Credentials are never written to disk.
+
+## Viewer
+
+Columns run frontend → gateway → orchestration → service → function/workload → datastore → external. Click a node to light its upstream and downstream hops; click an edge for its evidence lines, GitHub permalinks and runtime traces. Solid edges are exact, dashed are heuristic, dotted were only seen at runtime; green was seen in runtime traffic, orange was not. Filters live in the URL hash, so a view can be shared. External, function, queue, topic and bucket nodes start hidden. The Unresolved tab lists what still needs an alias.
+
+Rebuilding the viewer (contributors only): `pnpm -C viewer install && pnpm -C viewer build`, which writes `src/stackatlas/viewer_dist/`. After a schema change, run `stackatlas schema --all > viewer/src/schema.json && pnpm -C viewer gen:types`.
 
 ## How edges are found
 

@@ -1,6 +1,9 @@
 import json
 from datetime import UTC, datetime
 
+import httpx
+import pytest
+import yaml
 from typer.testing import CliRunner
 
 from stackatlas import cli
@@ -54,6 +57,100 @@ def test_scan_rejects_unknown_runtime(acme, tmp_path):
     args = ["scan", "--local", str(acme), "--out", str(tmp_path), "--runtime", "xray"]
     result = runner.invoke(app, args)
     assert result.exit_code != 0
+
+
+def test_scan_reads_local_and_runtime_from_config(acme, tmp_path, monkeypatch):
+    monkeypatch.setitem(cli.RUNTIME_SOURCES, "datadog", lambda config: _FakeSource())
+    cfg = tmp_path / "stackatlas.yml"
+    cfg.write_text(f"local: {acme}\nruntime:\n  sources: [datadog]\n")
+    out = tmp_path / "out"
+    result = runner.invoke(app, ["scan", "--config", str(cfg), "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    assert "1 observed" in result.output
+    assert json.loads((out / "graph.json").read_text())["org"] == "acme"
+
+
+def test_scan_flag_overrides_config_source(acme, tmp_path):
+    cfg = tmp_path / "stackatlas.yml"
+    cfg.write_text("org: someone\n")
+    out = tmp_path / "out"
+    args = ["scan", "--config", str(cfg), "--local", str(acme), "--out", str(out)]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+
+
+def _init(tmp_path, monkeypatch, args, user_input="", dd=True):
+    monkeypatch.setattr(cli, "resolve_token", lambda: "tok")
+    monkeypatch.setattr(cli, "check_owner", lambda owner, token: 12)
+    monkeypatch.setattr(cli, "validate_datadog", lambda environ: dd)
+    path = tmp_path / "stackatlas.yml"
+    result = runner.invoke(app, ["init", "--path", str(path), *args], input=user_input)
+    return result, path
+
+
+def test_init_writes_org_and_runtime(tmp_path, monkeypatch):
+    monkeypatch.setenv("DD_API_KEY", "k")
+    monkeypatch.setenv("DD_APP_KEY", "a")
+    result, path = _init(tmp_path, monkeypatch, ["--org", "acme"], "y\n")
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load(path.read_text()) == {
+        "org": "acme", "runtime": {"sources": ["datadog"]},
+    }
+    assert "12 repos" in result.output
+    assert "stackatlas scan" in result.output and "stackatlas serve" in result.output
+    assert "tok" not in path.read_text() and "k\n" not in path.read_text()
+
+
+def test_init_prompts_for_org(tmp_path, monkeypatch):
+    for var in ("DD_API_KEY", "DATADOG_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    result, path = _init(tmp_path, monkeypatch, [], "acme\n")
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load(path.read_text()) == {"org": "acme"}
+    assert "Datadog" in result.output
+
+
+def test_init_local_skips_github(tmp_path, monkeypatch):
+    for var in ("DD_API_KEY", "DATADOG_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(cli, "check_owner", lambda owner, token: pytest.fail("called"))
+    path = tmp_path / "stackatlas.yml"
+    result = runner.invoke(app, ["init", "--path", str(path), "--local", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load(path.read_text()) == {"local": str(tmp_path)}
+
+
+def test_init_refuses_to_overwrite(tmp_path, monkeypatch):
+    (tmp_path / "stackatlas.yml").write_text("org: old\n")
+    result, path = _init(tmp_path, monkeypatch, ["--org", "acme"])
+    assert result.exit_code != 0
+    assert path.read_text() == "org: old\n"
+    result, path = _init(tmp_path, monkeypatch, ["--org", "acme", "--force"], "n\n")
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load(path.read_text())["org"] == "acme"
+
+
+def test_init_fails_on_bad_github_access(tmp_path, monkeypatch):
+    def denied(owner, token):
+        request = httpx.Request("GET", "https://api.github.com/orgs/acme")
+        raise httpx.HTTPStatusError("x", request=request, response=httpx.Response(404))
+
+    monkeypatch.setattr(cli, "resolve_token", lambda: "tok")
+    monkeypatch.setattr(cli, "check_owner", denied)
+    path = tmp_path / "stackatlas.yml"
+    result = runner.invoke(app, ["init", "--path", str(path), "--org", "acme"])
+    assert result.exit_code != 0
+    assert "404" in result.output
+    assert not path.exists()
+
+
+def test_init_rejects_invalid_datadog_keys(tmp_path, monkeypatch):
+    monkeypatch.setenv("DD_API_KEY", "k")
+    monkeypatch.setenv("DD_APP_KEY", "a")
+    result, path = _init(tmp_path, monkeypatch, ["--org", "acme"], dd=False)
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load(path.read_text()) == {"org": "acme"}
+    assert "invalid" in result.output.lower()
 
 
 def test_scan_requires_exactly_one_source(tmp_path):

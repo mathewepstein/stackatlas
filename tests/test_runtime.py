@@ -6,7 +6,13 @@ import httpx
 import pytest
 
 from stackatlas.config import Config
-from stackatlas.runtime import Datadog, MissingCredentials, RuntimeData, datadog_source
+from stackatlas.runtime import (
+    Datadog,
+    MissingCredentials,
+    RuntimeData,
+    datadog_source,
+    validate_datadog,
+)
 from stackatlas.scan import build_graph, discover_local
 
 FIXTURE = Path(__file__).parent / "fixtures" / "datadog" / "prod.json"
@@ -81,6 +87,21 @@ def test_datadog_source_without_keys_fails():
         datadog_source(Config(), {"DD_API_KEY": "k"})
 
 
+def test_validate_datadog():
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx.Response(200, json={"valid": request.headers["DD-API-KEY"] == "good"})
+
+    env = {"DD_API_KEY": "good", "DD_APP_KEY": "a"}
+    assert validate_datadog(env, _client(handler)) is True
+    assert seen[0].url.path == "/api/v1/validate"
+    assert validate_datadog({"DD_API_KEY": "bad", "DD_APP_KEY": "a"}, _client(handler)) is False
+    forbidden = _client(lambda r: httpx.Response(403, json={"errors": ["Forbidden"]}))
+    assert validate_datadog(env, forbidden) is False
+
+
 def _overlay(acme):
     return build_graph("acme", discover_local(acme), CONFIG, _prod())
 
@@ -136,6 +157,31 @@ def test_unresolved_runtime_names_are_reported_without_nodes(acme):
 def test_without_runtime_every_edge_is_unclassified(acme):
     graph = build_graph("acme", discover_local(acme), CONFIG).graph
     assert all(e.observed is None and e.traces == [] for e in graph.edges)
+
+
+def test_glued_service_suffix_resolves(acme):
+    names = frozenset({"billingservice", "pricing-svc", "sapi"})
+    pairs = frozenset({("billingservice", "pricing-svc"), ("sapi", "pricing-svc")})
+    data = [RuntimeData("datadog", "prod", NOW, NOW, names, pairs)]
+    result = build_graph("acme", discover_local(acme), CONFIG, data)
+    edges = {(e.source, e.target): e for e in result.graph.edges}
+    assert edges[("repo:billing-api", "repo:pricing-svc")].observed is True
+    assert [u.ref for u in result.unresolved if u.kind == "service"] == ["sapi"]
+
+
+def test_generic_chart_workload_is_not_a_runtime_match(tmp_path, generic_chart):
+    generic_chart(tmp_path / "devops")
+    (tmp_path / "auth-microservice").mkdir()
+    data = [
+        RuntimeData(
+            "datadog", "prod", NOW, NOW, frozenset({"sc", "auth-microservice"}),
+            frozenset({("sc", "auth-microservice")}),
+        )
+    ]
+    result = build_graph("org", discover_local(tmp_path), Config(), data)
+    assert "workload:helm-deploy/sc" in {n.id for n in result.graph.nodes}
+    assert [e for e in result.graph.edges if e.confidence == "observed"] == []
+    assert [u.ref for u in result.unresolved if u.kind == "service"] == ["sc"]
 
 
 def test_runtime_env_outside_static_envs_does_not_mark_not_seen(acme):

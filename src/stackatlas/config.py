@@ -21,6 +21,23 @@ DEFAULT_ENVS = {
     "prod": ["prod", "production", "live"],
 }
 
+DEFAULT_INTEGRATIONS: dict[str, str | None] = {
+    "mysql": "mysql", "redis": "redis",
+    "jms": None, "sqs": None, "sns": None, "java-aws-sdk": None,
+}
+
+
+class DatadogConfig(BaseModel):
+    envs: dict[str, str] = Field(default_factory=dict)
+    window_days: int = 7
+
+
+class RuntimeConfig(BaseModel):
+    datadog: DatadogConfig = Field(default_factory=DatadogConfig)
+    integrations: dict[str, str | None] = Field(
+        default_factory=lambda: dict(DEFAULT_INTEGRATIONS)
+    )
+
 
 class Override(BaseModel):
     kind: Kind | None = None
@@ -42,6 +59,7 @@ class Config(BaseModel):
     envs: dict[str, list[str]] = Field(
         default_factory=lambda: {k: list(v) for k, v in DEFAULT_ENVS.items()}
     )
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
 
     def ignores_host(self, host: str) -> bool:
         return any(fnmatch(host, p) for p in self.ignore_hosts)

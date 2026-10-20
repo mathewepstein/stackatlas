@@ -12,6 +12,7 @@ from stackatlas.config import Config
 from stackatlas.detectors import CiFile, Declared, run_detectors
 from stackatlas.github import filter_repos, list_repos
 from stackatlas.resolve import resolve
+from stackatlas.runtime import RuntimeData, apply_runtime
 from stackatlas.schema import CiEntry, Edge, Evidence, Graph, Kind, Node, Unresolved
 from stackatlas.sync import head_sha, sync_repo
 
@@ -84,7 +85,9 @@ def discover_github(
     return sorted(scanned, key=lambda r: r.name), sorted(failed)
 
 
-def build_graph(org: str, repos: list[ScannedRepo], config: Config) -> ScanResult:
+def build_graph(
+    org: str, repos: list[ScannedRepo], config: Config, runtime: list[RuntimeData] | None = None
+) -> ScanResult:
     nodes = []
     kinds: dict[str, Kind] = {}
     apps: dict[str, list[str]] = {}
@@ -112,6 +115,8 @@ def build_graph(org: str, repos: list[ScannedRepo], config: Config) -> ScanResul
         nodes=sorted(nodes + infra + externals, key=lambda n: n.id),
         edges=_merge_edges(edges + deploy),
     )
+    if runtime:
+        graph, unresolved = apply_runtime(graph, unresolved, index, config, runtime)
     return ScanResult(graph, unresolved)
 
 

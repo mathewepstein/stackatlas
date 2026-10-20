@@ -41,131 +41,131 @@
     {"source": "function:edge/notify", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 68, "snippet": "BILLING_URL   = \"https://billing-api.acme.com\"", "url": null},
       {"path": "stacks/edge-prod/src/notify.py", "line": 3, "snippet": "BILLING_URL = os.environ[\"BILLING_URL\"]", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "gateway:edge/public", "target": "repo:orders-orchestration", "type": "http", "confidence": "heuristic", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 42, "snippet": "\"overwrite:header.Host\" = local.orders_host", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "gateway:partner/partner", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "stacks/partner/main.tf", "line": 18, "snippet": "backend_fqdn = \"pricing.acme.com\"", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:admin-next", "target": "repo:gateway-node", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": ".env.production", "line": 1, "snippet": "NEXT_PUBLIC_API_URL=https://api.acme.com", "url": null},
       {"path": "lib/api.ts", "line": 1, "snippet": "export const api = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`)", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:billing-api", "target": "datastore:redis/orders-cache", "type": "datastore", "confidence": "heuristic", "envs": ["prod"], "evidence": [
       {"path": ".env", "line": 2, "snippet": "REDIS_URL=redis://prod-orders-cache.acme.internal:6379/0", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:billing-api", "target": "repo:inventory-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": ".env", "line": 1, "snippet": "INVENTORY_URL=http://inventory-svc.internal:8080", "url": null},
       {"path": "app/clients.py", "line": 6, "snippet": "INVENTORY_URL = os.environ[\"INVENTORY_URL\"]", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:billing-api", "target": "repo:pricing-svc", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "app/clients.py", "line": 5, "snippet": "PRICING_URL = os.environ.get(\"PRICING_URL\", \"http://pricing-svc:8080\")", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:checkout-ui", "target": "bucket:acme-assets", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "buildspec.yml", "line": 5, "snippet": "- aws s3 sync ./dist s3://acme-assets-prod/checkout --delete", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:checkout-ui", "target": "repo:gateway-node", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": ".env", "line": 1, "snippet": "VUE_APP_GATEWAY_URL=https://api.acme.com", "url": null},
       {"path": "src/http.ts", "line": 3, "snippet": "export const http = axios.create({ baseURL: process.env.VUE_APP_GATEWAY_URL })", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:deploy-charts", "target": "workload:orders/orders-web", "type": "deploy", "confidence": "exact", "envs": ["dev", "prod"], "evidence": [
       {"path": "charts/orders/templates/deployment.yaml", "line": 3, "snippet": "kind: Deployment", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:gateway-node", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "src/routes.js", "line": 3, "snippet": "const BILLING_URL = process.env.BILLING_URL;", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:gateway-node", "target": "repo:orders-orchestration", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "src/routes.js", "line": 2, "snippet": "const ORDERS_URL = process.env.ORDERS_URL;", "url": null},
       {"path": "stacks/edge-prod/main.tf", "line": 7, "snippet": "\"/config/global_${local.env}/orders.url\" = {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:inventory-svc", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "internal/pricing/client.go", "line": 10, "snippet": "base := os.Getenv(\"PRICING_URL\")", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:notifications-worker", "target": "datastore:mongo/events-mongo.acme.internal", "type": "datastore", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "worker.py", "line": 7, "snippet": "MONGO_URL = \"mongo://prod-events-mongo.acme.internal:27017/events\"", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:notifications-worker", "target": "external:hooks.slack.com", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "worker.py", "line": 5, "snippet": "SLACK_WEBHOOK = \"https://hooks.slack.com/services/example\"", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:notifications-worker", "target": "function:edge/notify", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "buildspec.yml", "line": 5, "snippet": "- aws lambda update-function-code --function-name prod-notify --zip-file fileb://build.zip", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:notifications-worker", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "worker.py", "line": 6, "snippet": "BILLING_URL = os.getenv(\"BILLING_URL\")", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:orders-orchestration", "target": "repo:orders-service", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "src/main/java/com/acme/orders/OrdersClient.java", "line": 5, "snippet": "@FeignClient(name = \"orders-service\")", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:orders-orchestration", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": ["dev"], "evidence": [
       {"path": "src/main/java/com/acme/orders/PricingClient.java", "line": 5, "snippet": "@FeignClient( name = \"pricing\", url = \"${pricing.url}\" )", "url": null},
       {"path": "src/main/resources/application-dev.yml", "line": 2, "snippet": "url: https://dev-pricing.acme.com", "url": null},
       {"path": "src/main/resources/application.yml", "line": 5, "snippet": "url: https://pricing.acme.com", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:orders-service", "target": "datastore:postgres/orders-db", "type": "datastore", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "src/main/resources/application-prod.properties", "line": 2, "snippet": "spring.datasource.url=postgres://prod-orders-db.acme.internal:5432/orders", "url": null},
       {"path": "src/main/resources/application.yml", "line": 5, "snippet": "url: postgres://orders-db:5432/orders", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:orders-service", "target": "repo:inventory-svc", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "src/main/java/com/acme/orders/InventoryClient.java", "line": 6, "snippet": "@Value(\"${inventory.base-url}\")", "url": null},
       {"path": "src/main/resources/application-prod.properties", "line": 1, "snippet": "inventory.base-url=https://inventory.acme.com", "url": null},
       {"path": "src/main/resources/application.yml", "line": 7, "snippet": "base-url: ${INVENTORY_URL:http://inventory-svc:8080}", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:orders-service", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 100, "snippet": "value = \"https://pricing.acme.com\"", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "bucket:acme-assets", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 93, "snippet": "resource \"aws_s3_bucket\" \"assets\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "datastore:postgres/orders-db", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 75, "snippet": "resource \"aws_db_instance\" \"orders\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "datastore:redis/orders-cache", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 80, "snippet": "resource \"aws_elasticache_replication_group\" \"cache\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "function:edge/notify", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 61, "snippet": "resource \"aws_lambda_function\" \"notify\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "gateway:edge/public", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 22, "snippet": "resource \"aws_apigatewayv2_api\" \"public\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "gateway:partner/partner", "type": "deploy", "confidence": "exact", "envs": [], "evidence": [
       {"path": "stacks/partner/main.tf", "line": 1, "snippet": "resource \"aws_api_gateway_rest_api\" \"partner\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "queue:orders-events", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 85, "snippet": "resource \"aws_sqs_queue\" \"orders\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-infra", "target": "topic:alerts", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "stacks/edge-prod/main.tf", "line": 89, "snippet": "resource \"aws_sns_topic\" \"alerts\" {", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-mono/admin-api", "target": "repo:pricing-svc", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "admin-api/src/main/java/com/acme/admin/PricingClient.java", "line": 5, "snippet": "@FeignClient(name = \"pricing-svc\", url = \"${pricing.url}\")", "url": null},
       {"path": "admin-api/src/main/resources/application-prod.properties", "line": 1, "snippet": "pricing.url=https://prices.acme.com", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-mono/portal-api", "target": "repo:orders-service", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "portal-api/src/main/java/com/acme/portal/OrdersClient.java", "line": 5, "snippet": "@FeignClient(name = \"orders-service\")", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:platform-mono/web/portal-ui", "target": "repo:platform-mono/portal-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "web/portal-ui/.env", "line": 1, "snippet": "VITE_API_URL=https://portal-api.acme.com", "url": null},
       {"path": "web/portal-ui/src/api.ts", "line": 1, "snippet": "export const api = (p: string) => fetch(`${import.meta.env.VITE_API_URL}${p}`)", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:pricing-svc", "target": "external:api.exchangerate.host", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "internal/fx/client.go", "line": 5, "snippet": "const ratesURL = \"https://api.exchangerate.host/latest\"", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:web-portal", "target": "external:analytics.thirdparty.io", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": ".env.production", "line": 2, "snippet": "VITE_ANALYTICS_URL=https://analytics.thirdparty.io", "url": null},
       {"path": "src/analytics.ts", "line": 1, "snippet": "const endpoint = import.meta.env.VITE_ANALYTICS_URL", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "repo:web-portal", "target": "repo:orders-orchestration", "type": "http", "confidence": "exact", "envs": ["dev", "prod"], "evidence": [
       {"path": ".env.development", "line": 1, "snippet": "VITE_ORDERS_URL=https://dev-orders.acme.com", "url": null},
       {"path": ".env.production", "line": 1, "snippet": "VITE_ORDERS_URL=https://orders.acme.com", "url": null},
       {"path": "src/api.ts", "line": 1, "snippet": "const base = import.meta.env.VITE_ORDERS_URL", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "workload:orders/orders-web", "target": "datastore:postgres/orders-db", "type": "datastore", "confidence": "heuristic", "envs": ["dev", "prod"], "evidence": [
       {"path": "charts/orders/templates/deployment.yaml", "line": 19, "snippet": "value: {{ .Values.env.DB_URL | quote }}", "url": null}
-    ]},
+    ], "observed": null, "traces": []},
     {"source": "workload:orders/orders-web", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": ["dev", "prod"], "evidence": [
       {"path": "charts/orders/templates/deployment.yaml", "line": 17, "snippet": "value: {{ .Values.env.PRICING_URL | quote }}", "url": null}
-    ]}
+    ], "observed": null, "traces": []}
   ]
 }

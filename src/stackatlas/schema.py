@@ -9,7 +9,7 @@ Kind = Literal[
     "gateway", "function", "datastore", "queue", "topic", "bucket", "workload",
 ]
 EdgeType = Literal["http", "event", "deploy", "datastore", "depends"]
-Confidence = Literal["exact", "heuristic"]
+Confidence = Literal["exact", "heuristic", "observed"]
 
 
 class _Model(BaseModel):
@@ -21,6 +21,13 @@ class Evidence(_Model):
     line: int
     snippet: str
     url: str | None = None
+
+
+class Trace(_Model):
+    source: str
+    env: str
+    start: datetime
+    end: datetime
 
 
 class CiEntry(_Model):
@@ -51,6 +58,8 @@ class Edge(_Model):
     confidence: Confidence
     envs: list[str] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
+    observed: bool | None = None
+    traces: list[Trace] = Field(default_factory=list)
 
 
 class Graph(_Model):
@@ -63,7 +72,7 @@ class Graph(_Model):
 
 class Unresolved(_Model):
     ref: str
-    kind: Literal["host", "name"]
+    kind: Literal["host", "name", "service"]
     count: int
     repos: list[str] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)

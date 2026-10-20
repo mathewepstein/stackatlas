@@ -1,0 +1,10 @@
+{
+  "orders-orchestration": {"calls": ["orders-service", "billing-api"]},
+  "orders-service": {"calls": ["inventory-svc"]},
+  "inventory-svc": {"calls": ["java-aws-sdk"]},
+  "billing-api": {"calls": ["pricing-svc", "redis"]},
+  "pricing-svc": {},
+  "legacy-batch": {"calls": ["orders-service"]},
+  "redis": {},
+  "java-aws-sdk": {}
+}

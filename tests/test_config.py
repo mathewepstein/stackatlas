@@ -22,6 +22,15 @@ def test_loads_yaml(tmp_path):
     assert config.overrides["monolith"].kind == "service"
 
 
+def test_runtime_defaults():
+    runtime = Config().runtime
+    assert runtime.datadog.envs == {} and runtime.datadog.window_days == 7
+    assert runtime.integrations == {
+        "mysql": "mysql", "redis": "redis",
+        "jms": None, "sqs": None, "sns": None, "java-aws-sdk": None,
+    }
+
+
 def test_includes_respects_globs():
     config = Config(include=["orders-*", "web-*"], exclude=["*-legacy"])
     assert config.includes("orders-service")

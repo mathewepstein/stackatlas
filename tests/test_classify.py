@@ -29,6 +29,18 @@ def test_classify_fixture_repos(acme, repo, kind):
     assert classify_repo(acme / repo) == kind
 
 
+def test_gradle_war_plugin_is_a_service(tmp_path):
+    (tmp_path / "build.gradle").write_text("plugins {\n  id 'java'\n  id 'war'\n}\n")
+    assert classify_repo(tmp_path) == "service"
+
+
+def test_plain_spring_mvc_without_boot_is_a_service(tmp_path):
+    (tmp_path / "build.gradle").write_text(
+        'dependencies {\n  implementation "org.springframework:spring-webmvc:6.2.0"\n}\n'
+    )
+    assert classify_repo(tmp_path) == "service"
+
+
 def test_test_fixtures_are_ignored(tmp_path):
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "tool"\n')
     nested = tmp_path / "tests" / "fixtures" / "api"

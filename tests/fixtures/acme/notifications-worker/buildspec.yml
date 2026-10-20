@@ -1,0 +1,6 @@
+version: 0.2
+phases:
+  build:
+    commands:
+      - aws lambda update-function-code --function-name prod-notify --zip-file fileb://build.zip
+      - docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/acme/notifications-worker:latest

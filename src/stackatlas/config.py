@@ -35,6 +35,9 @@ class Config(BaseModel):
     layers: dict[str, list[str]] = Field(default_factory=dict)
     overrides: dict[str, Override] = Field(default_factory=dict)
     aliases: dict[str, list[str]] = Field(default_factory=dict)
+    apps: dict[str, list[str]] = Field(default_factory=dict)
+    host_patterns: list[str] = Field(default_factory=list)
+    shared_config_names: list[str] = Field(default_factory=lambda: ["global", "application"])
     ignore_hosts: list[str] = Field(default_factory=lambda: list(DEFAULT_IGNORE_HOSTS))
     envs: dict[str, list[str]] = Field(
         default_factory=lambda: {k: list(v) for k, v in DEFAULT_ENVS.items()}

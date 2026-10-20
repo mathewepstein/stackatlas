@@ -31,6 +31,14 @@ def test_url_literal_next_to_var_keeps_key_and_scrubs_query(tmp_path):
     assert "token=abc" not in ref.snippet
 
 
+def test_xmlns_attributes_are_not_urls(tmp_path):
+    (tmp_path / "Icon.vue").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:v="https://vecta.io/nano">\n'
+        '<a href="https://acme.com/help">\n'
+    )
+    assert [(r.value, r.line) for r in refs_for(tmp_path)] == [("https://acme.com/help", 2)]
+
+
 def test_comment_lines_test_files_and_node_modules_skipped(tmp_path):
     (tmp_path / "a.ts").write_text('// "https://docs.thirdparty.io"\nconst x = 1\n')
     (tmp_path / "a.spec.ts").write_text('const u = "https://mock.thirdparty.io"\n')

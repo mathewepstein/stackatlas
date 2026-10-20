@@ -1,0 +1,15 @@
+fullnameOverride: prod-orders-web
+image:
+  repository: 123456789012.dkr.ecr.us-east-1.amazonaws.com/acme/orders-service
+  tag: "1.4.0"
+service:
+  port: 80
+ingress:
+  enabled: true
+  hosts:
+    - host: orders-web.acme.com
+      paths:
+        - path: /
+env:
+  PRICING_URL: https://pricing.acme.com
+  DB_URL: jdbc:postgresql://prod-orders-db.acme.internal:5432/orders

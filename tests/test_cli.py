@@ -14,10 +14,10 @@ def test_scan_local_writes_graph(acme, tmp_path):
     assert result.exit_code == 0, result.output
     data = json.loads((out / "graph.json").read_text())
     assert data["org"] == "acme"
-    assert len(data["nodes"]) == 20
-    assert len(data["edges"]) == 14
+    assert len(data["nodes"]) == 34
+    assert len(data["edges"]) == 38
     assert len(json.loads((out / "unresolved.json").read_text())) == 4
-    assert "14 edges" in result.output and "4 unresolved" in result.output
+    assert "38 edges" in result.output and "4 unresolved" in result.output
 
 
 def test_scan_requires_exactly_one_source(tmp_path):

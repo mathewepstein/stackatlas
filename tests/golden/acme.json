@@ -2,31 +2,58 @@
   "schemaVersion": 1,
   "org": "acme",
   "nodes": [
-    {"id": "external:analytics.thirdparty.io", "name": "analytics.thirdparty.io", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "external:api.exchangerate.host", "name": "api.exchangerate.host", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "external:hooks.slack.com", "name": "hooks.slack.com", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:admin-next", "name": "admin-next", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:billing-api", "name": "billing-api", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:checkout-ui", "name": "checkout-ui", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:deploy-charts", "name": "deploy-charts", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:gateway-node", "name": "gateway-node", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:go-kit", "name": "go-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:handbook", "name": "handbook", "kind": "unknown", "layer": "unknown", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:inventory-svc", "name": "inventory-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:java-commons", "name": "java-commons", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:notifications-worker", "name": "notifications-worker", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:orders-orchestration", "name": "orders-orchestration", "kind": "service", "layer": "orchestration", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:orders-service", "name": "orders-service", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:platform-infra", "name": "platform-infra", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:pricing-svc", "name": "pricing-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:py-helpers", "name": "py-helpers", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:ui-kit", "name": "ui-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []},
-    {"id": "repo:web-portal", "name": "web-portal", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "envs": [], "endpoints": []}
+    {"id": "bucket:acme-assets", "name": "acme-assets", "kind": "bucket", "layer": "bucket", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": [], "ci": []},
+    {"id": "datastore:mongo/events-mongo.acme.internal", "name": "events-mongo.acme.internal", "kind": "datastore", "layer": "datastore", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": [], "ci": []},
+    {"id": "datastore:postgres/orders-db", "name": "orders-db", "kind": "datastore", "layer": "datastore", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": [], "ci": []},
+    {"id": "datastore:redis/orders-cache", "name": "orders-cache", "kind": "datastore", "layer": "datastore", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": [], "ci": []},
+    {"id": "external:analytics.thirdparty.io", "name": "analytics.thirdparty.io", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "external:api.exchangerate.host", "name": "api.exchangerate.host", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "external:hooks.slack.com", "name": "hooks.slack.com", "kind": "external", "layer": "external", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "function:edge/notify", "name": "notify", "kind": "function", "layer": "function", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": [], "ci": []},
+    {"id": "gateway:edge/public", "name": "public-api", "kind": "gateway", "layer": "edge", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": ["POST /v1/orders/{proxy+}"], "ci": []},
+    {"id": "gateway:partner/partner", "name": "partner-api", "kind": "gateway", "layer": "edge", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "queue:orders-events", "name": "orders-events", "kind": "queue", "layer": "queue", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": [], "ci": []},
+    {"id": "repo:admin-next", "name": "admin-next", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:billing-api", "name": "billing-api", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:checkout-ui", "name": "checkout-ui", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": [{"system": "codebuild", "path": "buildspec.yml", "repo": null, "registries": []}]},
+    {"id": "repo:deploy-charts", "name": "deploy-charts", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:gateway-node", "name": "gateway-node", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:go-kit", "name": "go-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:handbook", "name": "handbook", "kind": "unknown", "layer": "unknown", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:inventory-svc", "name": "inventory-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:java-commons", "name": "java-commons", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:notifications-worker", "name": "notifications-worker", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": [{"system": "codebuild", "path": "buildspec.yml", "repo": null, "registries": ["123456789012.dkr.ecr.us-east-1.amazonaws.com"]}]},
+    {"id": "repo:orders-orchestration", "name": "orders-orchestration", "kind": "service", "layer": "orchestration", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:orders-service", "name": "orders-service", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": [{"system": "codebuild", "path": "stacks/edge-prod/main.tf", "repo": "platform-infra", "registries": []}]},
+    {"id": "repo:platform-infra", "name": "platform-infra", "kind": "infra", "layer": "infra", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:platform-mono", "name": "platform-mono", "kind": "group", "layer": "group", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:platform-mono/admin-api", "name": "admin-api", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": "repo:platform-mono", "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:platform-mono/portal-api", "name": "portal-api", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": "repo:platform-mono", "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:platform-mono/web/portal-ui", "name": "portal-ui", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "parent": "repo:platform-mono", "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:pricing-svc", "name": "pricing-svc", "kind": "service", "layer": "service", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:py-helpers", "name": "py-helpers", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "repo:ui-kit", "name": "ui-kit", "kind": "library", "layer": "library", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": [{"system": "github-actions", "path": ".github/workflows/release.yml", "repo": null, "registries": ["npm.pkg.github.com"]}]},
+    {"id": "repo:web-portal", "name": "web-portal", "kind": "frontend", "layer": "frontend", "repo": null, "url": null, "sha": null, "parent": null, "envs": [], "endpoints": [], "ci": []},
+    {"id": "topic:alerts", "name": "alerts", "kind": "topic", "layer": "topic", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["prod"], "endpoints": [], "ci": []},
+    {"id": "workload:orders/orders-web", "name": "orders-web", "kind": "workload", "layer": "service", "repo": null, "url": null, "sha": null, "parent": null, "envs": ["dev", "prod"], "endpoints": [], "ci": []}
   ],
   "edges": [
+    {"source": "function:edge/notify", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 68, "snippet": "BILLING_URL   = \"https://billing-api.acme.com\"", "url": null},
+      {"path": "stacks/edge-prod/src/notify.py", "line": 3, "snippet": "BILLING_URL = os.environ[\"BILLING_URL\"]", "url": null}
+    ]},
+    {"source": "gateway:edge/public", "target": "repo:orders-orchestration", "type": "http", "confidence": "heuristic", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 42, "snippet": "\"overwrite:header.Host\" = local.orders_host", "url": null}
+    ]},
+    {"source": "gateway:partner/partner", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
+      {"path": "stacks/partner/main.tf", "line": 18, "snippet": "backend_fqdn = \"pricing.acme.com\"", "url": null}
+    ]},
     {"source": "repo:admin-next", "target": "repo:gateway-node", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": ".env.production", "line": 1, "snippet": "NEXT_PUBLIC_API_URL=https://api.acme.com", "url": null},
       {"path": "lib/api.ts", "line": 1, "snippet": "export const api = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`)", "url": null}
+    ]},
+    {"source": "repo:billing-api", "target": "datastore:redis/orders-cache", "type": "datastore", "confidence": "heuristic", "envs": ["prod"], "evidence": [
+      {"path": ".env", "line": 2, "snippet": "REDIS_URL=redis://prod-orders-cache.acme.internal:6379/0", "url": null}
     ]},
     {"source": "repo:billing-api", "target": "repo:inventory-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": ".env", "line": 1, "snippet": "INVENTORY_URL=http://inventory-svc.internal:8080", "url": null},
@@ -35,18 +62,34 @@
     {"source": "repo:billing-api", "target": "repo:pricing-svc", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "app/clients.py", "line": 5, "snippet": "PRICING_URL = os.environ.get(\"PRICING_URL\", \"http://pricing-svc:8080\")", "url": null}
     ]},
+    {"source": "repo:checkout-ui", "target": "bucket:acme-assets", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "buildspec.yml", "line": 5, "snippet": "- aws s3 sync ./dist s3://acme-assets-prod/checkout --delete", "url": null}
+    ]},
     {"source": "repo:checkout-ui", "target": "repo:gateway-node", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": ".env", "line": 1, "snippet": "VUE_APP_GATEWAY_URL=https://api.acme.com", "url": null},
       {"path": "src/http.ts", "line": 3, "snippet": "export const http = axios.create({ baseURL: process.env.VUE_APP_GATEWAY_URL })", "url": null}
     ]},
+    {"source": "repo:deploy-charts", "target": "workload:orders/orders-web", "type": "deploy", "confidence": "exact", "envs": ["dev", "prod"], "evidence": [
+      {"path": "charts/orders/templates/deployment.yaml", "line": 3, "snippet": "kind: Deployment", "url": null}
+    ]},
     {"source": "repo:gateway-node", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "src/routes.js", "line": 3, "snippet": "const BILLING_URL = process.env.BILLING_URL;", "url": null}
+    ]},
+    {"source": "repo:gateway-node", "target": "repo:orders-orchestration", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "src/routes.js", "line": 2, "snippet": "const ORDERS_URL = process.env.ORDERS_URL;", "url": null},
+      {"path": "stacks/edge-prod/main.tf", "line": 7, "snippet": "\"/config/global_${local.env}/orders.url\" = {", "url": null}
     ]},
     {"source": "repo:inventory-svc", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "internal/pricing/client.go", "line": 10, "snippet": "base := os.Getenv(\"PRICING_URL\")", "url": null}
     ]},
+    {"source": "repo:notifications-worker", "target": "datastore:mongo/events-mongo.acme.internal", "type": "datastore", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "worker.py", "line": 7, "snippet": "MONGO_URL = \"mongo://prod-events-mongo.acme.internal:27017/events\"", "url": null}
+    ]},
     {"source": "repo:notifications-worker", "target": "external:hooks.slack.com", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "worker.py", "line": 5, "snippet": "SLACK_WEBHOOK = \"https://hooks.slack.com/services/example\"", "url": null}
+    ]},
+    {"source": "repo:notifications-worker", "target": "function:edge/notify", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "buildspec.yml", "line": 5, "snippet": "- aws lambda update-function-code --function-name prod-notify --zip-file fileb://build.zip", "url": null}
     ]},
     {"source": "repo:notifications-worker", "target": "repo:billing-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
       {"path": "worker.py", "line": 6, "snippet": "BILLING_URL = os.getenv(\"BILLING_URL\")", "url": null}
@@ -59,10 +102,52 @@
       {"path": "src/main/resources/application-dev.yml", "line": 2, "snippet": "url: https://dev-pricing.acme.com", "url": null},
       {"path": "src/main/resources/application.yml", "line": 5, "snippet": "url: https://pricing.acme.com", "url": null}
     ]},
+    {"source": "repo:orders-service", "target": "datastore:postgres/orders-db", "type": "datastore", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "src/main/resources/application-prod.properties", "line": 2, "snippet": "spring.datasource.url=postgres://prod-orders-db.acme.internal:5432/orders", "url": null},
+      {"path": "src/main/resources/application.yml", "line": 5, "snippet": "url: postgres://orders-db:5432/orders", "url": null}
+    ]},
     {"source": "repo:orders-service", "target": "repo:inventory-svc", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
       {"path": "src/main/java/com/acme/orders/InventoryClient.java", "line": 6, "snippet": "@Value(\"${inventory.base-url}\")", "url": null},
       {"path": "src/main/resources/application-prod.properties", "line": 1, "snippet": "inventory.base-url=https://inventory.acme.com", "url": null},
       {"path": "src/main/resources/application.yml", "line": 7, "snippet": "base-url: ${INVENTORY_URL:http://inventory-svc:8080}", "url": null}
+    ]},
+    {"source": "repo:orders-service", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 100, "snippet": "value = \"https://pricing.acme.com\"", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "bucket:acme-assets", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 93, "snippet": "resource \"aws_s3_bucket\" \"assets\" {", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "datastore:postgres/orders-db", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 75, "snippet": "resource \"aws_db_instance\" \"orders\" {", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "datastore:redis/orders-cache", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 80, "snippet": "resource \"aws_elasticache_replication_group\" \"cache\" {", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "function:edge/notify", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 61, "snippet": "resource \"aws_lambda_function\" \"notify\" {", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "gateway:edge/public", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 22, "snippet": "resource \"aws_apigatewayv2_api\" \"public\" {", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "gateway:partner/partner", "type": "deploy", "confidence": "exact", "envs": [], "evidence": [
+      {"path": "stacks/partner/main.tf", "line": 1, "snippet": "resource \"aws_api_gateway_rest_api\" \"partner\" {", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "queue:orders-events", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 85, "snippet": "resource \"aws_sqs_queue\" \"orders\" {", "url": null}
+    ]},
+    {"source": "repo:platform-infra", "target": "topic:alerts", "type": "deploy", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "stacks/edge-prod/main.tf", "line": 89, "snippet": "resource \"aws_sns_topic\" \"alerts\" {", "url": null}
+    ]},
+    {"source": "repo:platform-mono/admin-api", "target": "repo:pricing-svc", "type": "http", "confidence": "exact", "envs": ["prod"], "evidence": [
+      {"path": "admin-api/src/main/java/com/acme/admin/PricingClient.java", "line": 5, "snippet": "@FeignClient(name = \"pricing-svc\", url = \"${pricing.url}\")", "url": null},
+      {"path": "admin-api/src/main/resources/application-prod.properties", "line": 1, "snippet": "pricing.url=https://prices.acme.com", "url": null}
+    ]},
+    {"source": "repo:platform-mono/portal-api", "target": "repo:orders-service", "type": "http", "confidence": "exact", "envs": [], "evidence": [
+      {"path": "portal-api/src/main/java/com/acme/portal/OrdersClient.java", "line": 5, "snippet": "@FeignClient(name = \"orders-service\")", "url": null}
+    ]},
+    {"source": "repo:platform-mono/web/portal-ui", "target": "repo:platform-mono/portal-api", "type": "http", "confidence": "heuristic", "envs": [], "evidence": [
+      {"path": "web/portal-ui/.env", "line": 1, "snippet": "VITE_API_URL=https://portal-api.acme.com", "url": null},
+      {"path": "web/portal-ui/src/api.ts", "line": 1, "snippet": "export const api = (p: string) => fetch(`${import.meta.env.VITE_API_URL}${p}`)", "url": null}
     ]},
     {"source": "repo:pricing-svc", "target": "external:api.exchangerate.host", "type": "http", "confidence": "exact", "envs": [], "evidence": [
       {"path": "internal/fx/client.go", "line": 5, "snippet": "const ratesURL = \"https://api.exchangerate.host/latest\"", "url": null}
@@ -75,6 +160,12 @@
       {"path": ".env.development", "line": 1, "snippet": "VITE_ORDERS_URL=https://dev-orders.acme.com", "url": null},
       {"path": ".env.production", "line": 1, "snippet": "VITE_ORDERS_URL=https://orders.acme.com", "url": null},
       {"path": "src/api.ts", "line": 1, "snippet": "const base = import.meta.env.VITE_ORDERS_URL", "url": null}
+    ]},
+    {"source": "workload:orders/orders-web", "target": "datastore:postgres/orders-db", "type": "datastore", "confidence": "heuristic", "envs": ["dev", "prod"], "evidence": [
+      {"path": "charts/orders/templates/deployment.yaml", "line": 19, "snippet": "value: {{ .Values.env.DB_URL | quote }}", "url": null}
+    ]},
+    {"source": "workload:orders/orders-web", "target": "repo:pricing-svc", "type": "http", "confidence": "heuristic", "envs": ["dev", "prod"], "evidence": [
+      {"path": "charts/orders/templates/deployment.yaml", "line": 17, "snippet": "value: {{ .Values.env.PRICING_URL | quote }}", "url": null}
     ]}
   ]
 }

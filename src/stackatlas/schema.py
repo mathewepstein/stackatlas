@@ -4,7 +4,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 from pydantic.alias_generators import to_camel
 
-Kind = Literal["frontend", "service", "infra", "library", "unknown", "external"]
+Kind = Literal[
+    "frontend", "service", "infra", "library", "group", "unknown", "external",
+    "gateway", "function", "datastore", "queue", "topic", "bucket", "workload",
+]
 EdgeType = Literal["http", "event", "deploy", "datastore", "depends"]
 Confidence = Literal["exact", "heuristic"]
 
@@ -20,6 +23,13 @@ class Evidence(_Model):
     url: str | None = None
 
 
+class CiEntry(_Model):
+    system: str
+    path: str
+    repo: str | None = None
+    registries: list[str] = Field(default_factory=list)
+
+
 class Node(_Model):
     id: str
     name: str
@@ -28,8 +38,10 @@ class Node(_Model):
     repo: str | None = None
     url: str | None = None
     sha: str | None = None
+    parent: str | None = None
     envs: list[str] = Field(default_factory=list)
     endpoints: list[str] = Field(default_factory=list)
+    ci: list[CiEntry] = Field(default_factory=list)
 
 
 class Edge(_Model):

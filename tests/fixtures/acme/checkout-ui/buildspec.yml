@@ -1,0 +1,6 @@
+version: 0.2
+phases:
+  post_build:
+    commands:
+      - aws s3 sync ./dist s3://acme-assets-prod/checkout --delete
+      - aws cloudfront create-invalidation --distribution-id E1ABC --paths "/*"

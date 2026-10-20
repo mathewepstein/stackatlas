@@ -1,0 +1,8 @@
+fullnameOverride: dev-orders-web
+ingress:
+  hosts:
+    - host: dev-orders-web.acme.com
+      paths:
+        - path: /
+env:
+  DB_URL: jdbc:postgresql://dev-orders-db.acme.internal:5432/orders

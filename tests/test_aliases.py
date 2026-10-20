@@ -107,6 +107,50 @@ def test_infra_repos_only_contribute_their_name(tmp_path):
     assert as_service.lookup("pricing") == "repo:deploy-charts"
 
 
+def test_name_variants_strip_one_suffix_only():
+    assert name_variants("platform-web-service") == {
+        "platform-web", "platform-web-svc", "platform-web-ms",
+    }
+    assert name_variants("customer-vendor-microservice") == {
+        "customer-vendor", "customer-vendor-service", "customer-vendor-svc", "customer-vendor-ms",
+    }
+
+
+def test_generic_declared_names_and_variants_are_not_claimable(tmp_path):
+    (tmp_path / "package.json").write_text('{"name": "auth"}')
+    repos = [ScannedRepo(name="partner-portal", path=tmp_path)]
+    index = build_index(repos, {}, Config())
+    assert index.lookup("auth") is None
+    assert index.lookup("partner-portal") == "repo:partner-portal"
+    web = [ScannedRepo(name="web-service", path=tmp_path / "none")]
+    assert build_index(web, {}, Config()).lookup("web") is None
+
+
+def test_host_patterns_declare_hosts_per_env(tmp_path):
+    repos = [ScannedRepo(name="orders-service", path=tmp_path)]
+    cfg = Config(
+        host_patterns=["{env}-{name}.acme.internal"],
+        envs={"dev": ["dev"], "prod": ["prod", "production"]},
+    )
+    index = build_index(repos, {}, cfg)
+    assert index.lookup("prod-orders-service.acme.internal") == "repo:orders-service"
+    assert index.lookup("production-orders-service.acme.internal") == "repo:orders-service"
+    assert index.tier("production-orders-service.acme.internal") == 0
+    assert index.tier("orders-service") == 2
+    assert index.tier("nope") is None
+
+
+def test_generic_sub_app_dir_names_get_no_alias(tmp_path):
+    for sub in ("app", "portal-api"):
+        (tmp_path / sub).mkdir()
+    repos = [ScannedRepo(name="mono", path=tmp_path)]
+    index = build_index(repos, {}, Config(), {"mono": ["app", "portal-api"]})
+    assert index.lookup("app") is None
+    assert index.lookup("portal-api") == "repo:mono/portal-api"
+    assert index.lookup("portal") == "repo:mono/portal-api"
+    assert index.lookup("mono") == "repo:mono"
+
+
 def test_higher_tier_resolves_lower_tier_conflict():
     index = AliasIndex()
     index.add("api.acme.com", "repo:a", 1)

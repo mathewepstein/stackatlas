@@ -9,7 +9,7 @@
   {"ref": "hooks.slack.com", "kind": "host", "count": 1, "repos": ["notifications-worker"], "evidence": [
     {"path": "worker.py", "line": 5, "snippet": "SLACK_WEBHOOK = \"https://hooks.slack.com/services/example\"", "url": null}
   ]},
-  {"ref": "orders", "kind": "name", "count": 1, "repos": ["gateway-node"], "evidence": [
-    {"path": "src/routes.js", "line": 2, "snippet": "const ORDERS_URL = process.env.ORDERS_URL;", "url": null}
+  {"ref": "prod-events-mongo.acme.internal", "kind": "host", "count": 1, "repos": ["notifications-worker"], "evidence": [
+    {"path": "worker.py", "line": 7, "snippet": "MONGO_URL = \"mongo://prod-events-mongo.acme.internal:27017/events\"", "url": null}
   ]}
 ]

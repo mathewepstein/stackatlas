@@ -21,7 +21,8 @@ NODE_SERVERS = {
     "express", "fastify", "koa", "@nestjs/core", "@hapi/hapi", "hono", "restify",
 }
 JVM_SERVERS = (
-    "spring-boot", "org.springframework.boot", "io.quarkus", "io.micronaut",
+    "spring-boot", "org.springframework.boot", "spring-webmvc", "spring-webflux",
+    "org.springframework:spring-web", "io.quarkus", "io.micronaut",
     "dropwizard", "io.ktor", "javalin", "helidon",
 )
 PY_SERVERS = (
@@ -32,6 +33,7 @@ GO_SERVERS = (
     "github.com/gofiber/fiber", "github.com/gorilla/mux", "google.golang.org/grpc",
 )
 GO_SERVE_CALLS = ("ListenAndServe(", "http.Server{", "grpc.NewServer(")
+WAR_PLUGIN = re.compile(r"""(?:\bid|plugin)\s*[:(]?\s*['"]war['"]""")
 INFRA_FILES = {
     "Chart.yaml", "kustomization.yaml", "cdk.json", "serverless.yml",
     "serverless.yaml", "Pulumi.yaml",
@@ -95,6 +97,8 @@ def _is_service(root: Path, files: list[Path]) -> bool:
     if _node_deps(root) & NODE_SERVERS:
         return True
     if _text_has(files, JVM_MANIFESTS, JVM_SERVERS):
+        return True
+    if any(f.name in JVM_MANIFESTS and WAR_PLUGIN.search(_read(f)) for f in files):
         return True
     if _py_server(root, files):
         return True

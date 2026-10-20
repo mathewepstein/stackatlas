@@ -18,7 +18,8 @@ from stackatlas.detectors.base import (
 from stackatlas.files import PLACEHOLDER, flat_properties, flat_yaml, read_lines
 
 SOURCE = {".java", ".kt"}
-CONFIG_FILE = re.compile(r"^(?:application|bootstrap)(?:-[\w]+)?\.(?:ya?ml|properties)$")
+CONFIG_FILE = re.compile(r"^(?:(?:application|bootstrap)(?:-[\w]+)?\.ya?ml|.*\.properties)$")
+BUILD_FILES = {"gradle.properties"}
 VAR = re.compile(r"\$\{([\w.\-]+)(?::[^}]*)?\}|System\.getenv\(\s*\"([\w.\-]+)\"")
 PLACEHOLDER_DEFAULT = re.compile(r"\$\{([\w.\-]+):(https?://[^}\s\"]+)\}")
 FEIGN = re.compile(r"@FeignClient\s*\(")
@@ -31,7 +32,7 @@ PROFILE_KEYS = ("spring.config.activate.on-profile", "spring.profiles")
 def detect_file(repo: str, rel: str, path: Path, config: Config) -> list[Reference]:
     if path.suffix in SOURCE:
         return _source_refs(repo, rel, path)
-    if CONFIG_FILE.match(path.name):
+    if CONFIG_FILE.match(path.name) and path.name not in BUILD_FILES:
         return _config_refs(repo, rel, path, config)
     return []
 
@@ -65,20 +66,26 @@ def _balanced(lines: list[str], start: int) -> tuple[str, int]:
 
 def _feign_refs(repo: str, rel: str, lineno: int, block: str) -> list[Reference]:
     snippet = scrub(block)
+    named = FEIGN_NAME.search(block) or FEIGN_BARE.search(block)
+    name = named.group(1) if named and named.group(1) else None
     url = FEIGN_URL.search(block)
     if url and url.group(1):
         value = url.group(1)
         if is_http_url(value):
-            return [Reference(repo, rel, lineno, snippet, "url", clean_url(value))]
+            return [Reference(repo, rel, lineno, snippet, "url", clean_url(value), fallback=name)]
         m = PLACEHOLDER.match(value)
         if m:
             var, default = m.group(1), m.group(2)
             if default and is_http_url(default):
-                return [Reference(repo, rel, lineno, snippet, "url", clean_url(default), key=var)]
-            return [Reference(repo, rel, lineno, snippet, "var", var)]
-    name = FEIGN_NAME.search(block) or FEIGN_BARE.search(block)
-    if name and name.group(1):
-        return [Reference(repo, rel, lineno, snippet, "name", name.group(1))]
+                return [
+                    Reference(
+                        repo, rel, lineno, snippet, "url", clean_url(default), key=var,
+                        fallback=name,
+                    )
+                ]
+            return [Reference(repo, rel, lineno, snippet, "var", var, fallback=name)]
+    if name:
+        return [Reference(repo, rel, lineno, snippet, "name", name)]
     return []
 
 
@@ -95,10 +102,9 @@ def _line_refs(repo: str, rel: str, lineno: int, line: str) -> list[Reference]:
     return refs
 
 
-def _config_refs(repo: str, rel: str, path: Path, config: Config) -> list[Reference]:
+def config_entries(rel: str, path: Path, config: Config) -> list[tuple[str, str, int, str | None]]:
     file_env = env_from_path(rel, config.envs)
     lines = read_lines(path)
-    refs: list[Reference] = []
     if path.suffix == ".properties":
         entries = [(0, key, value, lineno) for key, value, lineno in flat_properties(lines)]
         profiles: dict[int, str | None] = {}
@@ -109,8 +115,15 @@ def _config_refs(repo: str, rel: str, path: Path, config: Config) -> list[Refere
             for doc, key, value, _ in entries
             if key in PROFILE_KEYS
         }
-    for doc, key, value, lineno in entries:
-        env = profiles.get(doc) or file_env
+    return [
+        (key, value, lineno, profiles.get(doc) or file_env) for doc, key, value, lineno in entries
+    ]
+
+
+def _config_refs(repo: str, rel: str, path: Path, config: Config) -> list[Reference]:
+    lines = read_lines(path)
+    refs: list[Reference] = []
+    for key, value, lineno, env in config_entries(rel, path, config):
         ref = _config_value_ref(repo, rel, lineno, lines[lineno - 1], key, value, env)
         if ref:
             refs.append(ref)

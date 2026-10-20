@@ -4,10 +4,20 @@ from types import ModuleType
 from typing import Protocol
 
 from stackatlas.config import Config
-from stackatlas.detectors import go_http, java_http, js_http, py_http
-from stackatlas.detectors.base import Reference, iter_files
+from stackatlas.detectors import (
+    ci,
+    datastore,
+    go_http,
+    helm_k8s,
+    java_http,
+    js_http,
+    py_http,
+    terraform,
+)
+from stackatlas.detectors.base import CiFile, Declared, Detection, Reference, iter_files
 
-DETECTORS: list[ModuleType] = [js_http, java_http, py_http, go_http]
+DETECTORS: list[ModuleType] = [js_http, java_http, py_http, go_http, datastore]
+REPO_DETECTORS: list[ModuleType] = [terraform, ci, helm_k8s]
 
 
 class _Repo(Protocol):
@@ -25,14 +35,21 @@ def detect(
     return refs
 
 
-def run_detectors(repos: Iterable[_Repo], config: Config) -> list[Reference]:
-    refs: list[Reference] = []
+def run_detectors(repos: Iterable[_Repo], config: Config) -> Detection:
+    out = Detection()
     for repo in repos:
-        refs.extend(detect(repo.name, repo.path, config))
-    return refs
+        out.refs.extend(detect(repo.name, repo.path, config))
+        for detector in REPO_DETECTORS:
+            found = detector.detect_repo(repo.name, repo.path, config)
+            out.refs.extend(found.refs)
+            out.declared.extend(found.declared)
+            out.owners.extend(found.owners)
+            out.ci.extend(found.ci)
+    return out
 
 
 __all__ = [
-    "DETECTORS", "Reference", "detect", "go_http", "java_http", "js_http", "py_http",
-    "run_detectors",
+    "DETECTORS", "REPO_DETECTORS", "CiFile", "Declared", "Detection", "Reference", "ci",
+    "datastore", "detect", "go_http", "helm_k8s", "java_http", "js_http", "py_http",
+    "run_detectors", "terraform",
 ]

@@ -1,0 +1,4 @@
+{
+  "name": "portal-ui",
+  "dependencies": { "vue": "^3.4.0" }
+}

@@ -1,30 +1,27 @@
-import re
 from collections import defaultdict
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Protocol
 
-from stackatlas.aliases import AliasIndex, name_candidates, strip_service_suffix
+from stackatlas.aliases import (
+    TIER_LEARNED,
+    TIER_NAME,
+    AliasIndex,
+    name_candidates,
+    strip_service_suffix,
+)
 from stackatlas.config import Config
 from stackatlas.detectors.base import Reference, env_from_host, strip_env, url_parts
-from stackatlas.schema import Confidence, Edge, Evidence, Node, Unresolved
+from stackatlas.names import GENERIC_NAMES, relax, var_to_name
+from stackatlas.schema import Confidence, Edge, Evidence, Kind, Node, Unresolved
 
 MAX_HOPS = 3
 MAX_UNRESOLVED_EVIDENCE = 5
-CAMEL = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
-FE_PREFIXES = (
-    "VITE_", "NEXT_PUBLIC_", "NUXT_PUBLIC_", "VUE_APP_", "REACT_APP_", "PUBLIC_", "APP_",
-    "URL_", "HOST_", "FEIGN_", "CLIENT_", "ENDPOINT_",
-)
-NAME_SUFFIXES = (
-    "_BASE_URL", "_BASEURL", "_URL", "_URI", "_HOSTNAME", "_HOST", "_ENDPOINT", "_BASE",
-    "_ORIGIN", "_DOMAIN", "_ADDRESS", "_ADDR",
-)
-GENERIC_NAMES = {
-    "base", "url", "uri", "api", "app", "host", "server", "service", "endpoint", "origin",
-    "domain", "address", "addr", "backend", "frontend", "web", "client", "http", "https",
-    "rest", "public",
+GENERIC_LABELS = GENERIC_NAMES | {
+    "test", "www", "blog", "cdn", "static", "assets", "mail", "smtp", "admin", "docs", "demo",
+    "sandbox", "auth", "login", "db", "database", "cache", "redis", "mongo", "mysql", "postgres",
+    "rds",
 }
 
 
@@ -42,6 +39,7 @@ class _Outcome:
     confidence: Confidence = "exact"
     env: str | None = None
     unresolved: tuple[str, str] | None = None
+    inferred: Kind | None = None
 
 
 @dataclass
@@ -57,57 +55,132 @@ class _UnresolvedAcc:
     evidence: dict[tuple[str, str, int], Evidence] = field(default_factory=dict)
 
 
-def relax(key: str) -> str:
-    return CAMEL.sub("_", key).lower().replace(".", "_").replace("-", "_")
-
-
-def var_to_name(var: str) -> str:
-    name = CAMEL.sub("_", var).upper().replace(".", "_").replace("-", "_")
-    for prefix in FE_PREFIXES:
-        if name.startswith(prefix) and len(name) > len(prefix):
-            name = name[len(prefix):]
-            break
-    for suffix in NAME_SUFFIXES:
-        if name.endswith(suffix) and len(name) > len(suffix):
-            name = name[: -len(suffix)]
-            break
-    return name.lower().replace("_", "-")
+def _is_repo(target: str | None) -> bool:
+    return bool(target) and not target.startswith("external:")
 
 
 def resolve(
-    refs: list[Reference], index: AliasIndex, config: Config, repos: Iterable[_Repo]
+    refs: list[Reference],
+    index: AliasIndex,
+    config: Config,
+    repos: Iterable[_Repo],
+    apps: dict[str, list[str]] | None = None,
+    owners: Iterable[tuple[str, str, str]] | None = None,
 ) -> tuple[list[Edge], list[Node], list[Unresolved]]:
-    return _Resolver(refs, index, config, {r.name: r for r in repos}).run()
+    return _Resolver(
+        refs, index, config, {r.name: r for r in repos}, apps or {}, list(owners or [])
+    ).run()
 
 
 class _Resolver:
     def __init__(
-        self, refs: list[Reference], index: AliasIndex, config: Config, repos: dict[str, _Repo]
+        self,
+        refs: list[Reference],
+        index: AliasIndex,
+        config: Config,
+        repos: dict[str, _Repo],
+        apps: dict[str, list[str]],
+        owners: list[tuple[str, str, str]],
     ) -> None:
         self.refs = refs
         self.index = index
         self.config = config
         self.repos = repos
+        self.owners: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        for repo, subs in apps.items():
+            self.owners[repo].extend((sub, f"repo:{repo}/{sub}") for sub in subs)
+        for repo, prefix, node in owners:
+            self.owners[repo].append((prefix, node))
+        for entries in self.owners.values():
+            entries.sort(key=lambda e: len(e[0]), reverse=True)
+        self._owner_nodes: dict[str, str | None] = {}
         self.values: dict[tuple[str, str], list[Reference]] = defaultdict(list)
         for ref in refs:
-            if ref.key:
-                self.values[(ref.repo, relax(ref.key))].append(ref)
+            node = self.node_for(ref)
+            if ref.key and node:
+                self.values[(node, relax(ref.key))].append(ref)
         self.edges: dict[tuple[str, str, str], _EdgeAcc] = defaultdict(_EdgeAcc)
         self.unresolved: dict[tuple[str, str], _UnresolvedAcc] = defaultdict(_UnresolvedAcc)
         self.externals: dict[str, Node] = {}
+        self.inferred: dict[str, tuple[Kind, set[str]]] = {}
+
+    def node_for(self, ref: Reference) -> str | None:
+        if ref.source:
+            return ref.source
+        if ref.owner is not None:
+            if ref.owner == "*":
+                return "*"
+            if ref.owner not in self._owner_nodes:
+                self._owner_nodes[ref.owner] = self._name_outcome([ref], ref.owner, "exact").target
+            return self._owner_nodes[ref.owner]
+        for prefix, node in self.owners.get(ref.repo, ()):
+            if ref.path == prefix or ref.path.startswith(prefix + "/"):
+                return node
+        return f"repo:{ref.repo}"
+
+    def _values_for(self, ref: Reference) -> list[Reference]:
+        key = relax(ref.value)
+        for scope in dict.fromkeys([self.node_for(ref), f"repo:{ref.repo}", "*"]):
+            found = self.values.get((scope or "", key))
+            if found:
+                return found
+        return []
 
     def run(self) -> tuple[list[Edge], list[Node], list[Unresolved]]:
+        self._learn_aliases()
         for ref in self.refs:
+            source = self.node_for(ref)
+            if not source or source == "*":
+                continue
             for outcome in self._outcomes(ref, 0):
-                self._record(ref.repo, outcome)
+                self._record(source, ref.repo, outcome)
         return self._edge_list(), self._external_list(), self._unresolved_list()
 
+    def _learn_aliases(self) -> None:
+        for ref in self.refs:
+            if not ref.fallback:
+                continue
+            target = self.index.lookup(ref.fallback)
+            tier = self.index.tier(ref.fallback)
+            if not target or tier is None or tier > TIER_NAME:
+                continue
+            for out in self._raw_outcomes(ref, 0):
+                if out.unresolved and out.unresolved[0] == "host":
+                    self.index.add(out.unresolved[1], target, TIER_LEARNED)
+
     def _outcomes(self, ref: Reference, depth: int) -> list[_Outcome]:
-        if ref.kind == "url":
-            return self._url_outcomes(ref)
         if ref.kind == "name":
+            if ref.edge_type == "deploy":
+                return [self._deploy_outcome(ref)]
             return [self._name_outcome([ref], ref.value, "exact")]
-        return self._var_outcomes(ref, depth)
+        return self._apply_fallback(ref, self._raw_outcomes(ref, depth))
+
+    def _deploy_outcome(self, ref: Reference) -> _Outcome:
+        env = ref.env or env_from_host(ref.value, self.config.envs)
+        stripped = strip_env(ref.value, self.config.envs) or ref.value
+        for candidate, confidence in ((ref.value, "exact"), (stripped, "heuristic")):
+            target = self.index.lookup(candidate)
+            if target:
+                return _Outcome([ref], target, confidence, env)
+        kind: Kind = ref.engine or "bucket"
+        node = f"{kind}:{stripped}"
+        return _Outcome([ref], node, "exact", env, unresolved=("name", ref.value), inferred=kind)
+
+    def _raw_outcomes(self, ref: Reference, depth: int) -> list[_Outcome]:
+        return self._url_outcomes(ref) if ref.kind == "url" else self._var_outcomes(ref, depth)
+
+    def _apply_fallback(self, ref: Reference, outcomes: list[_Outcome]) -> list[_Outcome]:
+        if not ref.fallback or any(_is_repo(o.target) for o in outcomes):
+            return outcomes
+        named = self._name_outcome([ref], ref.fallback, "exact")
+        if not named.target:
+            return outcomes
+        if not outcomes:
+            return [named]
+        return [
+            replace(o, target=named.target, confidence=named.confidence, unresolved=None)
+            for o in outcomes
+        ]
 
     def _url_outcomes(self, ref: Reference) -> list[_Outcome]:
         parts = url_parts(ref.value)
@@ -117,11 +190,30 @@ class _Resolver:
         if self.config.ignores_host(host):
             return []
         env = ref.env or env_from_host(host, self.config.envs)
+        if ref.edge_type == "datastore":
+            return self._datastore_outcomes(ref, host, env)
         for candidate, confidence in self._url_candidates(host, path):
             target = self.index.lookup(candidate)
             if target:
                 return [_Outcome([ref], target, confidence, env)]
         return [_Outcome([ref], f"external:{host}", "exact", env, unresolved=("host", host))]
+
+    def _datastore_outcomes(self, ref: Reference, host: str, env: str | None) -> list[_Outcome]:
+        stripped = strip_env(host, self.config.envs) or host
+        candidates = [(host, "exact")]
+        if stripped != host:
+            candidates.append((stripped, "heuristic"))
+        first = stripped.split(".")[0]
+        if first != stripped and first not in GENERIC_LABELS:
+            candidates.append((first, "heuristic"))
+        for candidate, confidence in candidates:
+            target = self.index.lookup(candidate)
+            if target:
+                return [_Outcome([ref], target, confidence, env)]
+        node = f"datastore:{ref.engine or 'db'}/{stripped}"
+        return [
+            _Outcome([ref], node, "exact", env, unresolved=("host", host), inferred="datastore")
+        ]
 
     def _url_candidates(self, host: str, path: str) -> list[tuple[str, Confidence]]:
         segments = [s for s in path.split("/") if s]
@@ -135,10 +227,10 @@ class _Resolver:
         if stripped != host:
             candidates.append((stripped, "heuristic"))
         first = stripped.split(".")[0]
-        if first != stripped:
+        if first != stripped and first not in GENERIC_LABELS:
             candidates.append((first, "heuristic"))
             base = strip_service_suffix(first)
-            if base != first:
+            if base != first and base not in GENERIC_LABELS:
                 candidates.append((base, "heuristic"))
         return candidates
 
@@ -156,7 +248,7 @@ class _Resolver:
     def _var_outcomes(self, ref: Reference, depth: int) -> list[_Outcome]:
         if depth < MAX_HOPS:
             outcomes: list[_Outcome] = []
-            for value in self.values.get((ref.repo, relax(ref.value)), []):
+            for value in self._values_for(ref):
                 if value is ref:
                     continue
                 for out in self._outcomes(value, depth + 1):
@@ -172,8 +264,7 @@ class _Resolver:
             return [_Outcome([ref], target, "heuristic")] if target else []
         return [self._name_outcome([ref], name, "heuristic")]
 
-    def _record(self, repo: str, outcome: _Outcome) -> None:
-        source = f"repo:{repo}"
+    def _record(self, source: str, repo: str, outcome: _Outcome) -> None:
         if outcome.unresolved:
             kind, value = outcome.unresolved
             acc = self.unresolved[(kind, value)]
@@ -186,6 +277,10 @@ class _Resolver:
         if target.startswith("external:"):
             host = target.split(":", 1)[1]
             self.externals[host] = Node(id=target, name=host, kind="external", layer="external")
+        elif outcome.inferred:
+            kind, envs = self.inferred.setdefault(target, (outcome.inferred, set()))
+            if outcome.env:
+                envs.add(outcome.env)
         edge = self.edges[(source, target, outcome.chain[0].edge_type)]
         edge.exact = edge.exact or outcome.confidence == "exact"
         if outcome.env:
@@ -214,7 +309,11 @@ class _Resolver:
         ]
 
     def _external_list(self) -> list[Node]:
-        return [self.externals[host] for host in sorted(self.externals)]
+        nodes = [self.externals[host] for host in sorted(self.externals)]
+        for node, (kind, envs) in self.inferred.items():
+            name = node.split("/", 1)[1] if "/" in node else node.split(":", 1)[1]
+            nodes.append(Node(id=node, name=name, kind=kind, layer=kind, envs=sorted(envs)))
+        return sorted(nodes, key=lambda n: n.id)
 
     def _unresolved_list(self) -> list[Unresolved]:
         items = [

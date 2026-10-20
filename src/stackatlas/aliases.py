@@ -18,10 +18,16 @@ from stackatlas.files import (
 )
 from stackatlas.schema import Kind
 
-TIER_CONFIG, TIER_DECLARED, TIER_NAME, TIER_DERIVED = 0, 1, 2, 3
+TIER_CONFIG, TIER_DECLARED, TIER_NAME, TIER_DERIVED, TIER_LEARNED = 0, 1, 2, 3, 4
 SERVICE_SUFFIXES = {
     "microservice", "service", "svc", "ms", "api", "server", "backend", "worker",
     "orchestration", "orch", "ui", "web", "frontend", "app", "http", "https", "rest", "client",
+}
+GENERIC_APP_NAMES = {
+    "app", "apps", "api", "web", "www", "frontend", "backend", "server", "client", "ui",
+    "service", "services", "src", "lib", "libs", "cli", "core", "common", "shared", "tools",
+    "scripts", "docs", "examples", "packages", "test", "tests", "demo", "sample", "samples",
+    "playground", "main", "auth", "login",
 }
 SUFFIX_FAMILIES = (
     ({"microservice", "service", "svc", "ms"}, ("service", "svc", "ms")),
@@ -40,6 +46,12 @@ class _Repo(Protocol):
     path: Path
 
 
+class _Declared(Protocol):
+    id: str
+    name: str
+    aliases: tuple[str, ...]
+
+
 class AliasIndex:
     def __init__(self) -> None:
         self._entries: dict[str, dict[int, set[str]]] = {}
@@ -56,6 +68,13 @@ class AliasIndex:
 
     def lookup_squashed(self, alias: str) -> str | None:
         return _best(self._squashed.get(squash(normalize(alias))))
+
+    def tier(self, alias: str) -> int | None:
+        tiers = self._entries.get(normalize(alias))
+        if not tiers:
+            return None
+        best = min(tiers)
+        return best if len(tiers[best]) == 1 else None
 
 
 def _best(tiers: dict[int, set[str]] | None) -> str | None:
@@ -101,7 +120,7 @@ def name_variants(name: str) -> set[str]:
     parts = norm.split("-")
     if len(parts) < 2 or parts[-1] not in SERVICE_SUFFIXES:
         return set()
-    base = strip_service_suffix(norm)
+    base = "-".join(parts[:-1])
     variants = {base}
     for family, outputs in SUFFIX_FAMILIES:
         if parts[-1] in family:
@@ -113,24 +132,68 @@ def slug(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
 
 
-def build_index(repos: Iterable[_Repo], kinds: dict[str, Kind], config: Config) -> AliasIndex:
+def build_index(
+    repos: Iterable[_Repo],
+    kinds: dict[str, Kind],
+    config: Config,
+    apps: dict[str, list[str]] | None = None,
+    declared: Iterable[_Declared] = (),
+) -> AliasIndex:
     index = AliasIndex()
+    apps = apps or {}
     for repo in repos:
-        node = f"repo:{repo.name}"
-        for alias in config.aliases.get(repo.name, []):
-            index.add(alias, node, TIER_CONFIG)
-        index.add(repo.name, node, TIER_NAME)
-        for variant in name_variants(repo.name):
-            index.add(variant, node, TIER_DERIVED)
-        if kinds.get(repo.name) != "infra":
-            for alias in declared_names(repo.path):
-                index.add(alias, node, TIER_DECLARED)
+        subs = apps.get(repo.name, [])
+        _add_node(index, f"repo:{repo.name}", repo.name, repo.path, kinds, config, subs)
+        for sub in subs:
+            name = sub.rsplit("/", 1)[-1]
+            _add_node(index, f"repo:{repo.name}/{sub}", name, repo.path / sub, kinds, config)
+    for item in declared:
+        if item.name.lower() not in GENERIC_APP_NAMES:
+            index.add(item.name, item.id, TIER_NAME)
+        for alias in item.aliases:
+            if alias.lower() not in GENERIC_APP_NAMES:
+                index.add(alias, item.id, TIER_DECLARED)
     return index
 
 
-def declared_names(root: Path) -> set[str]:
+def _host_patterns(index: AliasIndex, node: str, name: str, config: Config) -> None:
+    for pattern in config.host_patterns:
+        if "{env}" not in pattern:
+            index.add(pattern.format(name=name), node, TIER_CONFIG)
+            continue
+        for env, tokens in config.envs.items():
+            for token in dict.fromkeys([env, *tokens]):
+                index.add(pattern.format(env=token, name=name), node, TIER_CONFIG)
+
+
+def _add_node(
+    index: AliasIndex,
+    node: str,
+    name: str,
+    path: Path,
+    kinds: dict[str, Kind],
+    config: Config,
+    exclude: list[str] = (),
+) -> None:
+    key = node.removeprefix("repo:")
+    for alias in config.aliases.get(key, []):
+        index.add(alias, node, TIER_CONFIG)
+    if kinds.get(key) not in ("group", "infra"):
+        _host_patterns(index, node, name, config)
+    if "/" not in node or name.lower() not in GENERIC_APP_NAMES:
+        index.add(name, node, TIER_NAME)
+        for variant in name_variants(name) - GENERIC_APP_NAMES:
+            index.add(variant, node, TIER_DERIVED)
+    if kinds.get(key) != "infra":
+        for alias in declared_names(path, exclude) - GENERIC_APP_NAMES:
+            index.add(alias, node, TIER_DECLARED)
+
+
+def declared_names(root: Path, exclude: list[str] = ()) -> set[str]:
     names = set(_manifest_names(root))
-    for _, path in iter_files(root):
+    for rel, path in iter_files(root):
+        if any(rel == e or rel.startswith(e + "/") for e in exclude):
+            continue
         name = path.name
         if CONFIG_FILE.match(name):
             names |= _spring_names(path)

@@ -81,6 +81,32 @@ def test_datastore_and_queue_keys_are_not_http(tmp_path):
     assert detect("x", tmp_path, Config(), [java_http]) == []
 
 
+def test_feign_name_kept_as_fallback_beside_url(tmp_path):
+    (tmp_path / "A.java").write_text(
+        '@FeignClient(name = "credit-microservice", url = "${feign.credit.url}")\ninterface A {}\n'
+        '@FeignClient(name = "pricing", url = "https://pricing.acme.com")\ninterface B {}\n'
+    )
+    refs = detect("x", tmp_path, Config(), [java_http])
+    assert [(r.kind, r.value, r.fallback) for r in refs] == [
+        ("var", "feign.credit.url", "credit-microservice"),
+        ("url", "https://pricing.acme.com", "pricing"),
+    ]
+
+
+def test_any_properties_file_is_config_with_env_from_name(tmp_path):
+    props = tmp_path / "src" / "main" / "resources" / "property"
+    props.mkdir(parents=True)
+    (props / "common.properties").write_text("orders.url=https://orders.acme.com\n")
+    (props / "dev.properties").write_text("signupUrl = https://dev-signup.acme.com\n")
+    (tmp_path / "deploy.yml").write_text("url: https://ignored.acme.com\n")
+    (tmp_path / "gradle.properties").write_text("sonar.host.url=https://sonarcloud.io\n")
+    refs = detect("x", tmp_path, Config(), [java_http])
+    assert [(r.value, r.key, r.env) for r in refs] == [
+        ("https://orders.acme.com", "orders.url", None),
+        ("https://dev-signup.acme.com", "signupUrl", "dev"),
+    ]
+
+
 def test_feign_bare_value_and_literal_url(tmp_path):
     (tmp_path / "A.java").write_text(
         '@FeignClient("billing")\ninterface A {}\n'

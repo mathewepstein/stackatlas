@@ -63,6 +63,8 @@ def _workspaces(root: Path) -> set[str]:
     negative = [g[1:] for g in globs if g.startswith("!")]
     found = set()
     for pattern in (g for g in globs if not g.startswith("!")):
+        if Path(pattern).as_posix() == ".":
+            continue
         for path in root.glob(pattern):
             rel = path.relative_to(root).as_posix()
             if (path / "package.json").is_file() and not any(fnmatch(rel, n) for n in negative):

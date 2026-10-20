@@ -35,6 +35,12 @@ def test_pnpm_and_package_json_workspaces(tmp_path):
     assert find_apps(tmp_path) == ["apps/web", "tools/cli"]
 
 
+def test_workspace_glob_for_the_root_is_not_a_sub_app(tmp_path):
+    (tmp_path / "pnpm-workspace.yaml").write_text("packages:\n  - '.'\n  - './'\n  - './apps/*'\n")
+    mk(tmp_path, "package.json", "apps/web/package.json")
+    assert find_apps(tmp_path) == ["apps/web"]
+
+
 def test_go_work(tmp_path):
     (tmp_path / "go.work").write_text("go 1.22\n\nuse (\n\t./svc/a\n\t./svc/b\n)\n")
     mk(tmp_path, "svc/a/go.mod", "svc/b/go.mod")

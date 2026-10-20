@@ -13,6 +13,11 @@ from stackatlas.runtime import RuntimeData
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def isolated_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+
+
 def test_scan_local_writes_graph(acme, tmp_path):
     out = tmp_path / "out"
     result = runner.invoke(app, ["scan", "--local", str(acme), "--out", str(out)])

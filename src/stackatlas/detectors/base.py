@@ -11,6 +11,7 @@ from stackatlas.files import read_lines, unquote
 from stackatlas.schema import EdgeType, Kind
 
 RefKind = Literal["url", "name", "var"]
+Role = Literal["produce", "consume"]
 
 MAX_SNIPPET = 200
 COMMENT_STARTS = ("//", "#", "*", "/*", "<!--")
@@ -72,6 +73,7 @@ class Reference:
     source: str | None = None
     owner: str | None = None
     engine: str | None = None
+    role: Role | None = None
 
 
 @dataclass(frozen=True)
@@ -99,12 +101,25 @@ class CiFile:
     declared_in: str | None = None
 
 
+@dataclass(frozen=True)
+class Spec:
+    repo: str
+    path: str
+    line: int
+    snippet: str
+    title: str | None
+    servers: list[str]
+    endpoints: list[str]
+    consumed: bool = False
+
+
 @dataclass
 class Detection:
     refs: list[Reference] = field(default_factory=list)
     declared: list[Declared] = field(default_factory=list)
     owners: list[tuple[str, str, str]] = field(default_factory=list)
     ci: list[CiFile] = field(default_factory=list)
+    specs: list[Spec] = field(default_factory=list)
 
 
 def iter_files(root: Path) -> Iterator[tuple[str, Path]]:
@@ -128,6 +143,17 @@ def _walk(root: Path) -> Iterator[Path]:
 
 def is_comment(line: str) -> bool:
     return line.lstrip().startswith(COMMENT_STARTS)
+
+
+def balanced(lines: list[str], start: int) -> tuple[str, int]:
+    depth = 0
+    parts = []
+    for offset, line in enumerate(lines[start:]):
+        parts.append(line.strip())
+        depth += line.count("(") - line.count(")")
+        if depth <= 0:
+            return " ".join(parts), offset + 1
+    return " ".join(parts), len(lines) - start
 
 
 def is_secret(key: str) -> bool:

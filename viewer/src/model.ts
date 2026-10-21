@@ -15,6 +15,7 @@ export interface Filters {
 }
 
 export const DEFAULT_HIDDEN: Kind[] = ['external', 'function', 'queue', 'topic', 'bucket']
+const EVENT_KINDS: Kind[] = ['queue', 'topic']
 
 export const DEFAULT_FILTERS: Filters = {
   hiddenKinds: DEFAULT_HIDDEN,
@@ -62,11 +63,35 @@ function allows<T>(list: T[], value: T): boolean {
   return list.length === 0 || list.includes(value)
 }
 
-export function visible(graph: Graph, filters: Filters): { nodes: Node[]; edges: Edge[] } {
-  let nodes = graph.nodes.filter(
-    (n) => !filters.hiddenKinds.includes(n.kind) && allows(filters.layers, n.layer),
+function withEventPeers(graph: Graph, filters: Filters, ids: Set<string>): void {
+  const hidden = graph.nodes.filter(
+    (n) => EVENT_KINDS.includes(n.kind) && !ids.has(n.id) && allows(filters.layers, n.layer),
   )
-  const ids = new Set(nodes.map((n) => n.id))
+  const events = graph.edges.filter((e) => e.type === 'event')
+  let added = true
+  while (added) {
+    added = false
+    for (const n of hidden) {
+      if (ids.has(n.id)) continue
+      const linked = events.some(
+        (e) => (e.source === n.id && ids.has(e.target)) || (e.target === n.id && ids.has(e.source)),
+      )
+      if (linked) {
+        ids.add(n.id)
+        added = true
+      }
+    }
+  }
+}
+
+export function visible(graph: Graph, filters: Filters): { nodes: Node[]; edges: Edge[] } {
+  const ids = new Set(
+    graph.nodes
+      .filter((n) => !filters.hiddenKinds.includes(n.kind) && allows(filters.layers, n.layer))
+      .map((n) => n.id),
+  )
+  withEventPeers(graph, filters, ids)
+  let nodes = graph.nodes.filter((n) => ids.has(n.id))
   let edges = graph.edges.filter(
     (e) =>
       ids.has(e.source) &&
@@ -111,13 +136,16 @@ export function highlight(
   const lit = new Set<string>()
   for (const [from, to] of [['source', 'target'], ['target', 'source']] as const) {
     let frontier = new Set([selection.node])
+    const seen = new Set(frontier)
     for (let i = 0; i < hops && frontier.size; i++) {
       const next = new Set<string>()
       for (const e of edges) {
-        if (frontier.has(e[from]) && !lit.has(edgeId(e))) {
-          lit.add(edgeId(e))
-          if (!nodes.has(e[to])) next.add(e[to])
-          nodes.add(e[to])
+        if (!frontier.has(e[from])) continue
+        lit.add(edgeId(e))
+        nodes.add(e[to])
+        if (!seen.has(e[to])) {
+          seen.add(e[to])
+          next.add(e[to])
         }
       }
       frontier = next

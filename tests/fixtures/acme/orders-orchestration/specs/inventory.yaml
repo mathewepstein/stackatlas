@@ -1,0 +1,9 @@
+openapi: 3.0.3
+info:
+  title: inventory-svc
+  version: "1"
+servers:
+  - url: https://inventory.acme.com
+paths:
+  /stock/{sku}:
+    get: {}

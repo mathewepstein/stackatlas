@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: pricing-svc
+  version: "1"
+servers:
+  - url: https://pricing.acme.com
+paths:
+  /quote/{sku}:
+    get:
+      summary: Quote a SKU
+  /rates:
+    get: {}
+    post: {}

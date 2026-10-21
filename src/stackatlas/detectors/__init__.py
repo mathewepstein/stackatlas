@@ -11,13 +11,15 @@ from stackatlas.detectors import (
     helm_k8s,
     java_http,
     js_http,
+    messaging,
+    openapi,
     py_http,
     terraform,
 )
-from stackatlas.detectors.base import CiFile, Declared, Detection, Reference, iter_files
+from stackatlas.detectors.base import CiFile, Declared, Detection, Reference, Spec, iter_files
 
-DETECTORS: list[ModuleType] = [js_http, java_http, py_http, go_http, datastore]
-REPO_DETECTORS: list[ModuleType] = [terraform, ci, helm_k8s]
+DETECTORS: list[ModuleType] = [js_http, java_http, py_http, go_http, datastore, messaging]
+REPO_DETECTORS: list[ModuleType] = [terraform, ci, helm_k8s, openapi]
 
 
 class _Repo(Protocol):
@@ -45,11 +47,12 @@ def run_detectors(repos: Iterable[_Repo], config: Config) -> Detection:
             out.declared.extend(found.declared)
             out.owners.extend(found.owners)
             out.ci.extend(found.ci)
+            out.specs.extend(found.specs)
     return out
 
 
 __all__ = [
-    "DETECTORS", "REPO_DETECTORS", "CiFile", "Declared", "Detection", "Reference", "ci",
-    "datastore", "detect", "go_http", "helm_k8s", "java_http", "js_http", "py_http",
-    "run_detectors", "terraform",
+    "DETECTORS", "REPO_DETECTORS", "CiFile", "Declared", "Detection", "Reference", "Spec", "ci",
+    "datastore", "detect", "go_http", "helm_k8s", "java_http", "js_http", "messaging", "openapi",
+    "py_http", "run_detectors", "terraform",
 ]

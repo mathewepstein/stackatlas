@@ -14,6 +14,10 @@ MODULE_DIRS = {"modules", "module"}
 INTERP = re.compile(r"\$\{([^{}]*)\}")
 REF = re.compile(r"^(local|var)\.([A-Za-z0-9_-]+)((?:\.[A-Za-z0-9_-]+|\[\"[^\"]*\"\])*)$")
 INDEX = re.compile(r"\.([A-Za-z0-9_-]+)|\[\"([^\"]*)\"\]")
+NAMED_REF = re.compile(
+    r"^(data\.)?(aws_sqs_queue|aws_sns_topic)\.([A-Za-z0-9_-]+)\.(url|arn|id|name)$"
+)
+ARN_SERVICES = {"aws_sqs_queue": "sqs", "aws_sns_topic": "sns"}
 
 
 @dataclass(frozen=True)
@@ -63,8 +67,13 @@ class Stack:
         return resolved if isinstance(resolved, str) else None
 
     def _expr(self, expr: str, depth: int) -> str:
+        if depth >= MAX_DEPTH:
+            return UNKNOWN
+        named = NAMED_REF.match(expr)
+        if named:
+            return self._named(named, depth)
         m = REF.match(expr)
-        if depth >= MAX_DEPTH or not m:
+        if not m:
             return UNKNOWN
         scope, name, rest = m.groups()
         value = self.locals.get(name) if scope == "local" else self.variables.get(name)
@@ -75,6 +84,19 @@ class Stack:
             return UNKNOWN
         resolved = self.resolve(value, depth + 1)
         return resolved if isinstance(resolved, str) else UNKNOWN
+
+    def _named(self, m: re.Match[str], depth: int) -> str:
+        kind = "data" if m.group(1) else "resource"
+        block = next(
+            (b for b in self.blocks if (b.kind, b.type, b.name) == (kind, m.group(2), m.group(3))),
+            None,
+        )
+        name = self.resolve(block.body.get("name"), depth + 1) if block else None
+        if not isinstance(name, str):
+            return UNKNOWN
+        if m.group(4) == "name":
+            return name
+        return f"arn:aws:{ARN_SERVICES[m.group(2)]}:::{name}"
 
     def attr_line(self, block: Block, attr: str) -> tuple[int, str]:
         lines = self.files.get(block.path, [])

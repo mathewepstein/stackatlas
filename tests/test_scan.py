@@ -11,12 +11,21 @@ CONFIG = Config(layers={"orchestration": ["*-orchestration"]})
 JAVA = "src/main/java/com/acme/orders"
 RES = "src/main/resources"
 TF = "stacks/edge-prod/main.tf"
+MTF = "stacks/edge-prod/messaging.tf"
+AUDIT = "admin-api/src/main/java/com/acme/admin/AuditEvents.java"
 EXPECTED_EDGES = [
     ("function:edge/notify", "repo:billing-api", "heuristic", ["prod"],
      [(TF, 68), ("stacks/edge-prod/src/notify.py", 3)]),
+    ("function:edge/retry", "queue:notify-retry", "exact", ["prod"],
+     [(MTF, 18), ("stacks/edge-prod/src/retry.py", 10)]),
     ("gateway:edge/public", "repo:orders-orchestration", "heuristic", ["prod"], [(TF, 42)]),
     ("gateway:partner/partner", "repo:pricing-svc", "heuristic", [],
      [("stacks/partner/main.tf", 18)]),
+    ("queue:audit-log", "repo:platform-mono/admin-api", "exact", ["prod"],
+     [(AUDIT, 8), ("admin-api/src/main/resources/application-prod.properties", 2)]),
+    ("queue:orders-events", "function:edge/notify", "exact", ["prod"], [(MTF, 24)]),
+    ("queue:orders-events", "repo:orders-orchestration", "exact", ["prod"],
+     [(f"{JAVA}/OrderEventsListener.java", 6), (MTF, 37)]),
     ("repo:admin-next", "repo:gateway-node", "exact", ["prod"],
      [(".env.production", 1), ("lib/api.ts", 1)]),
     ("repo:billing-api", "datastore:redis/orders-cache", "heuristic", ["prod"], [(".env", 2)]),
@@ -38,6 +47,9 @@ EXPECTED_EDGES = [
     ("repo:notifications-worker", "function:edge/notify", "exact", ["prod"],
      [("buildspec.yml", 5)]),
     ("repo:notifications-worker", "repo:billing-api", "heuristic", [], [("worker.py", 6)]),
+    ("repo:notifications-worker", "topic:alerts", "exact", ["prod"],
+     [(".env.production", 1), ("alerts.py", 10)]),
+    ("repo:orders-orchestration", "repo:inventory-svc", "exact", [], [("build.gradle.kts", 8)]),
     ("repo:orders-orchestration", "repo:orders-service", "exact", [],
      [(f"{JAVA}/OrdersClient.java", 5)]),
     ("repo:orders-orchestration", "repo:pricing-svc", "heuristic", ["dev"],
@@ -45,6 +57,8 @@ EXPECTED_EDGES = [
       (f"{RES}/application.yml", 5)]),
     ("repo:orders-service", "datastore:postgres/orders-db", "exact", ["prod"],
      [(f"{RES}/application-prod.properties", 2), (f"{RES}/application.yml", 5)]),
+    ("repo:orders-service", "queue:orders-events", "heuristic", ["prod"],
+     [(f"{JAVA}/OrderEventsPublisher.java", 17), (f"{RES}/application-prod.properties", 3)]),
     ("repo:orders-service", "repo:inventory-svc", "exact", ["prod"],
      [(f"{JAVA}/InventoryClient.java", 6), (f"{RES}/application-prod.properties", 1),
       (f"{RES}/application.yml", 7)]),
@@ -53,14 +67,17 @@ EXPECTED_EDGES = [
     ("repo:platform-infra", "datastore:postgres/orders-db", "exact", ["prod"], [(TF, 75)]),
     ("repo:platform-infra", "datastore:redis/orders-cache", "exact", ["prod"], [(TF, 80)]),
     ("repo:platform-infra", "function:edge/notify", "exact", ["prod"], [(TF, 61)]),
+    ("repo:platform-infra", "function:edge/retry", "exact", ["prod"], [(MTF, 13)]),
     ("repo:platform-infra", "gateway:edge/public", "exact", ["prod"], [(TF, 22)]),
     ("repo:platform-infra", "gateway:partner/partner", "exact", [],
      [("stacks/partner/main.tf", 1)]),
+    ("repo:platform-infra", "queue:notify-retry", "exact", ["prod"], [(MTF, 3)]),
     ("repo:platform-infra", "queue:orders-events", "exact", ["prod"], [(TF, 85)]),
     ("repo:platform-infra", "topic:alerts", "exact", ["prod"], [(TF, 89)]),
     ("repo:platform-mono/admin-api", "repo:pricing-svc", "exact", ["prod"],
      [("admin-api/src/main/java/com/acme/admin/PricingClient.java", 5),
       ("admin-api/src/main/resources/application-prod.properties", 1)]),
+    ("repo:platform-mono/admin-api", "topic:price-changes", "exact", [], [(AUDIT, 10)]),
     ("repo:platform-mono/portal-api", "repo:orders-service", "exact", [],
      [("portal-api/src/main/java/com/acme/portal/OrdersClient.java", 5)]),
     ("repo:platform-mono/web/portal-ui", "repo:platform-mono/portal-api", "heuristic", [],
@@ -71,6 +88,8 @@ EXPECTED_EDGES = [
      [(".env.production", 2), ("src/analytics.ts", 1)]),
     ("repo:web-portal", "repo:orders-orchestration", "exact", ["dev", "prod"],
      [(".env.development", 1), (".env.production", 1), ("src/api.ts", 1)]),
+    ("topic:alerts", "queue:orders-events", "exact", ["prod"], [(MTF, 29)]),
+    ("topic:inventory-updates", "repo:platform-mono/admin-api", "exact", [], [(AUDIT, 4)]),
     ("workload:orders/orders-web", "datastore:postgres/orders-db", "heuristic", ["dev", "prod"],
      [("charts/orders/templates/deployment.yaml", 19)]),
     ("workload:orders/orders-web", "repo:pricing-svc", "heuristic", ["dev", "prod"],
@@ -112,8 +131,10 @@ def test_fixture_external_nodes_and_unresolved(acme):
     ]
     types = [e.type for e in result.graph.edges if e.type != "http"]
     assert types == (
-        ["datastore", "deploy", "deploy", "datastore", "deploy", "datastore"]
-        + ["deploy"] * 8 + ["datastore"]
+        ["event"] * 4
+        + ["datastore", "deploy", "deploy", "datastore", "deploy", "event", "datastore", "event"]
+        + ["deploy"] * 10
+        + ["event", "event", "event", "datastore"]
     )
 
 
@@ -141,14 +162,62 @@ def test_terraform_declares_infra_nodes(acme):
         ("datastore:postgres/orders-db", "datastore", "datastore", ["prod"], []),
         ("datastore:redis/orders-cache", "datastore", "datastore", ["prod"], []),
         ("function:edge/notify", "function", "function", ["prod"], []),
+        ("function:edge/retry", "function", "function", ["prod"], []),
         ("gateway:edge/public", "gateway", "edge", ["prod"], ["POST /v1/orders/{proxy+}"]),
         ("gateway:partner/partner", "gateway", "edge", [], []),
+        ("queue:audit-log", "queue", "queue", ["prod"], []),
+        ("queue:notify-retry", "queue", "queue", ["prod"], []),
         ("queue:orders-events", "queue", "queue", ["prod"], []),
         ("topic:alerts", "topic", "topic", ["prod"], []),
+        ("topic:inventory-updates", "topic", "topic", [], []),
+        ("topic:price-changes", "topic", "topic", [], []),
         ("workload:orders/orders-web", "workload", "service", ["dev", "prod"], []),
     ]
     by = {n.id: n for n in graph.nodes}
     assert by["gateway:edge/public"].sha == by["repo:platform-infra"].sha
+    assert by["queue:audit-log"].sha is None
+
+
+def test_openapi_endpoints_attach_to_the_spec_owner(acme):
+    graph = build_graph("acme", discover_local(acme), CONFIG).graph
+    by = {n.id: n for n in graph.nodes}
+    assert by["repo:inventory-svc"].endpoints == ["GET /stock/{sku}"]
+    assert by["repo:pricing-svc"].endpoints == ["GET /quote/{sku}", "GET /rates", "POST /rates"]
+    assert by["repo:orders-orchestration"].endpoints == []
+    assert by["repo:handbook"].endpoints == []
+
+
+def test_vendor_spec_consumed_by_a_generator_is_not_the_repo_itself(tmp_path):
+    repo = tmp_path / "billing"
+    (repo / "specs").mkdir(parents=True)
+    (repo / "specs" / "vendor.yaml").write_text(
+        "openapi: 3.0.3\ninfo:\n  title: API Reference\nservers:\n"
+        "  - url: https://gw.vendorpay.com/v4/gateway\npaths:\n  /charge:\n    post: {}\n"
+    )
+    (repo / "build.gradle").write_text(
+        'openApiGenerate {\n    inputSpec = "$projectDir/specs/vendor.yaml".toString()\n}\n'
+    )
+    result = build_graph("acme", discover_local(tmp_path), Config())
+    assert [(e.source, e.target, [(v.path, v.line) for v in e.evidence])
+            for e in result.graph.edges] == [
+        ("repo:billing", "external:gw.vendorpay.com", [("build.gradle", 2)]),
+    ]
+    assert all(n.endpoints == [] for n in result.graph.nodes)
+    assert [(u.ref, u.kind) for u in result.unresolved] == [("gw.vendorpay.com", "host")]
+
+
+def test_unowned_spec_in_docs_repo_is_reported(tmp_path):
+    (tmp_path / "wiki").mkdir()
+    (tmp_path / "wiki" / "ledger.yaml").write_text(
+        "openapi: 3.0.0\ninfo:\n  title: Ledger API\nservers:\n  - url: https://ledger.acme.com\n"
+        "paths:\n  /entries:\n    get: {}\n"
+    )
+    result = build_graph("acme", discover_local(tmp_path), Config())
+    assert all(n.endpoints == [] for n in result.graph.nodes)
+    assert [(u.ref, u.kind, u.repos, [(v.path, v.line) for v in u.evidence])
+            for u in result.unresolved] == [
+        ("ledger-api", "name", ["wiki"], [("ledger.yaml", 1)]),
+    ]
 
 
 def test_monorepo_sub_apps_become_nodes(acme):

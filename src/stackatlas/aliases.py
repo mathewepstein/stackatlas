@@ -1,6 +1,6 @@
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -16,6 +16,7 @@ from stackatlas.files import (
     read_lines,
     read_text,
 )
+from stackatlas.names import slug
 from stackatlas.schema import Kind
 
 TIER_CONFIG, TIER_DECLARED, TIER_NAME, TIER_DERIVED, TIER_LEARNED = 0, 1, 2, 3, 4
@@ -68,6 +69,28 @@ class AliasIndex:
 
     def lookup_squashed(self, alias: str) -> str | None:
         return _best(self._squashed.get(squash(normalize(alias))))
+
+    def lookup_prefixed(self, alias: str, prefixes: tuple[str, ...]) -> str | None:
+        return self._lookup_where(alias, lambda n: n.startswith(prefixes))
+
+    def lookup_excluding(self, alias: str, node_id: str) -> str | None:
+        return self._lookup_where(alias, lambda n: n != node_id)
+
+    def _lookup_where(self, alias: str, keep: Callable[[str], bool]) -> str | None:
+        tiers = self._entries.get(normalize(alias))
+        for tier in sorted(tiers or {}):
+            nodes = {n for n in tiers[tier] if keep(n)}
+            if nodes:
+                return next(iter(nodes)) if len(nodes) == 1 else None
+        return None
+
+    def remove(self, alias: str, node_id: str) -> None:
+        key = normalize(alias)
+        for table, k in ((self._entries, key), (self._squashed, squash(key))):
+            for tier, nodes in list(table.get(k, {}).items()):
+                nodes.discard(node_id)
+                if not nodes:
+                    del table[k][tier]
 
     def tier(self, alias: str) -> int | None:
         tiers = self._entries.get(normalize(alias))
@@ -126,10 +149,6 @@ def name_variants(name: str) -> set[str]:
         if parts[-1] in family:
             variants |= {f"{base}-{suffix}" for suffix in outputs}
     return variants - {norm}
-
-
-def slug(title: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
 
 
 def build_index(

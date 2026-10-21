@@ -18,6 +18,32 @@ def test_interpolation_resolves_locals_and_var_defaults(tmp_path):
     assert (queue.name, stack.text(queue.body["name"]), queue.line) == ("q", "prod-q-*", 14)
 
 
+def test_queue_and_topic_references_resolve_to_names(tmp_path):
+    (tmp_path / "main.tf").write_text(
+        'locals {\n  env = "prod"\n}\n'
+        'resource "aws_sqs_queue" "q" {\n  name = "${local.env}-orders"\n}\n'
+        'resource "aws_sqs_queue" "u" {\n  name = "${var.env}-retry"\n}\n'
+        'data "aws_sns_topic" "t" {\n  name = "prod-alerts"\n}\n'
+        'resource "aws_lambda_function" "f" {\n  environment {\n    variables = {\n'
+        "      A = aws_sqs_queue.q.url\n      B = aws_sqs_queue.q.arn\n"
+        "      C = aws_sqs_queue.q.name\n      D = data.aws_sns_topic.t.arn\n"
+        '      E = "${aws_sqs_queue.u.id}"\n      F = aws_sqs_queue.missing.arn\n'
+        "      G = aws_lambda_function.f.arn\n    }\n  }\n}\n"
+    )
+    stack = load_stack(tmp_path, "")
+    [fn] = stack.resources("aws_lambda_function")
+    variables = stack.resolve(fn.body["environment"][0]["variables"])
+    assert variables == {
+        "A": "arn:aws:sqs:::prod-orders",
+        "B": "arn:aws:sqs:::prod-orders",
+        "C": "prod-orders",
+        "D": "arn:aws:sns:::prod-alerts",
+        "E": "arn:aws:sqs:::*-retry",
+        "F": "*",
+        "G": "*",
+    }
+
+
 def test_find_stacks_skips_module_dirs_and_reports_lines(tmp_path):
     for rel in ("stacks/edge/a.tf", "stacks/edge/b.tf", "modules/x/main.tf", "docs/readme.md"):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)

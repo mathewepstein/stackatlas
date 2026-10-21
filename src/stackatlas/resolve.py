@@ -13,11 +13,13 @@ from stackatlas.aliases import (
 )
 from stackatlas.config import Config
 from stackatlas.detectors.base import Reference, env_from_host, strip_env, url_parts
+from stackatlas.detectors.messaging import messaging_name
 from stackatlas.names import GENERIC_NAMES, relax, var_to_name
 from stackatlas.schema import Confidence, Edge, Evidence, Kind, Node, Unresolved
 
 MAX_HOPS = 3
 MAX_UNRESOLVED_EVIDENCE = 5
+EVENT_PREFIXES = ("queue:", "topic:")
 GENERIC_LABELS = GENERIC_NAMES | {
     "test", "www", "blog", "cdn", "static", "assets", "mail", "smtp", "admin", "docs", "demo",
     "sandbox", "auth", "login", "db", "database", "cache", "redis", "mongo", "mysql", "postgres",
@@ -93,16 +95,16 @@ class _Resolver:
             self.owners[repo].append((prefix, node))
         for entries in self.owners.values():
             entries.sort(key=lambda e: len(e[0]), reverse=True)
+        self.edges: dict[tuple[str, str, str], _EdgeAcc] = defaultdict(_EdgeAcc)
+        self.unresolved: dict[tuple[str, str], _UnresolvedAcc] = defaultdict(_UnresolvedAcc)
+        self.externals: dict[str, Node] = {}
+        self.inferred: dict[str, tuple[Kind, set[str]]] = {}
         self._owner_nodes: dict[str, str | None] = {}
         self.values: dict[tuple[str, str], list[Reference]] = defaultdict(list)
         for ref in refs:
             node = self.node_for(ref)
             if ref.key and node:
                 self.values[(node, relax(ref.key))].append(ref)
-        self.edges: dict[tuple[str, str, str], _EdgeAcc] = defaultdict(_EdgeAcc)
-        self.unresolved: dict[tuple[str, str], _UnresolvedAcc] = defaultdict(_UnresolvedAcc)
-        self.externals: dict[str, Node] = {}
-        self.inferred: dict[str, tuple[Kind, set[str]]] = {}
 
     def node_for(self, ref: Reference) -> str | None:
         if ref.source:
@@ -111,12 +113,21 @@ class _Resolver:
             if ref.owner == "*":
                 return "*"
             if ref.owner not in self._owner_nodes:
-                self._owner_nodes[ref.owner] = self._name_outcome([ref], ref.owner, "exact").target
+                self._owner_nodes[ref.owner] = self._owner_node(ref)
             return self._owner_nodes[ref.owner]
         for prefix, node in self.owners.get(ref.repo, ()):
             if ref.path == prefix or ref.path.startswith(prefix + "/"):
                 return node
         return f"repo:{ref.repo}"
+
+    def _owner_node(self, ref: Reference) -> str | None:
+        owner = ref.owner or ""
+        found = messaging_name(owner) if ref.edge_type == "event" else None
+        if found and found[0]:
+            outcome = self._event_outcome([ref], owner, None)
+            self._note_inferred(outcome)
+            return outcome.target
+        return self._name_outcome([ref], owner, "exact").target
 
     def _values_for(self, ref: Reference) -> list[Reference]:
         key = relax(ref.value)
@@ -129,11 +140,13 @@ class _Resolver:
     def run(self) -> tuple[list[Edge], list[Node], list[Unresolved]]:
         self._learn_aliases()
         for ref in self.refs:
+            if ref.edge_type == "event" and ref.role is None:
+                continue
             source = self.node_for(ref)
             if not source or source == "*":
                 continue
             for outcome in self._outcomes(ref, 0):
-                self._record(source, ref.repo, outcome)
+                self._record(source, ref.repo, outcome, reverse=ref.role == "consume")
         return self._edge_list(), self._external_list(), self._unresolved_list()
 
     def _learn_aliases(self) -> None:
@@ -148,12 +161,33 @@ class _Resolver:
                 if out.unresolved and out.unresolved[0] == "host":
                     self.index.add(out.unresolved[1], target, TIER_LEARNED)
 
-    def _outcomes(self, ref: Reference, depth: int) -> list[_Outcome]:
+    def _outcomes(self, ref: Reference, depth: int, engine: str | None = None) -> list[_Outcome]:
+        engine = engine or ref.engine
         if ref.kind == "name":
             if ref.edge_type == "deploy":
                 return [self._deploy_outcome(ref)]
+            if ref.edge_type == "event":
+                return [self._event_outcome([ref], ref.value, engine)]
             return [self._name_outcome([ref], ref.value, "exact")]
-        return self._apply_fallback(ref, self._raw_outcomes(ref, depth))
+        return self._apply_fallback(ref, self._raw_outcomes(ref, depth, engine))
+
+    def _event_outcome(self, chain: list[Reference], raw: str, engine: str | None) -> _Outcome:
+        found = messaging_name(raw)
+        if not found:
+            return _Outcome(chain, unresolved=("name", raw))
+        kind: Kind = found[0] or engine or "queue"
+        name = found[1]
+        env = chain[-1].env or env_from_host(name, self.config.envs)
+        stripped = strip_env(name, self.config.envs) or name
+        prefixes = (f"{kind}:",) if found[0] or engine else EVENT_PREFIXES
+        candidates: list[tuple[str, Confidence]] = [(name, "exact")]
+        if stripped != name:
+            candidates.append((stripped, "heuristic"))
+        for candidate, confidence in candidates:
+            target = self.index.lookup_prefixed(candidate, prefixes)
+            if target:
+                return _Outcome(chain, target, confidence, env)
+        return _Outcome(chain, f"{kind}:{stripped}", "exact", env, inferred=kind)
 
     def _deploy_outcome(self, ref: Reference) -> _Outcome:
         env = ref.env or env_from_host(ref.value, self.config.envs)
@@ -166,15 +200,27 @@ class _Resolver:
         node = f"{kind}:{stripped}"
         return _Outcome([ref], node, "exact", env, unresolved=("name", ref.value), inferred=kind)
 
-    def _raw_outcomes(self, ref: Reference, depth: int) -> list[_Outcome]:
-        return self._url_outcomes(ref) if ref.kind == "url" else self._var_outcomes(ref, depth)
+    def _raw_outcomes(
+        self, ref: Reference, depth: int, engine: str | None = None
+    ) -> list[_Outcome]:
+        if ref.kind == "url":
+            return self._url_outcomes(ref)
+        return self._var_outcomes(ref, depth, engine)
 
     def _apply_fallback(self, ref: Reference, outcomes: list[_Outcome]) -> list[_Outcome]:
-        if not ref.fallback or any(_is_repo(o.target) for o in outcomes):
+        if not ref.fallback:
             return outcomes
         named = self._name_outcome([ref], ref.fallback, "exact")
         if not named.target:
             return outcomes
+        if any(_is_repo(o.target) for o in outcomes):
+            tier = self.index.tier(ref.fallback)
+            if named.confidence != "exact" or tier is None or tier > TIER_NAME:
+                return outcomes
+            return [
+                replace(o, confidence="exact") if o.target == named.target else o
+                for o in outcomes
+            ]
         if not outcomes:
             return [named]
         return [
@@ -245,26 +291,34 @@ class _Resolver:
             return _Outcome(chain, target, "heuristic")
         return _Outcome(chain, unresolved=("name", candidates[0]))
 
-    def _var_outcomes(self, ref: Reference, depth: int) -> list[_Outcome]:
+    def _var_outcomes(
+        self, ref: Reference, depth: int, engine: str | None = None
+    ) -> list[_Outcome]:
+        event = ref.edge_type == "event"
         if depth < MAX_HOPS:
             outcomes: list[_Outcome] = []
             for value in self._values_for(ref):
-                if value is ref:
+                if value is ref or (value.edge_type == "event") != event:
                     continue
-                for out in self._outcomes(value, depth + 1):
+                for out in self._outcomes(value, depth + 1, engine):
                     chain = [ref, *out.chain]
                     outcomes.append(
-                        _Outcome(chain, out.target, out.confidence, out.env, out.unresolved)
+                        _Outcome(
+                            chain, out.target, out.confidence, out.env, out.unresolved,
+                            out.inferred,
+                        )
                     )
             if any(o.target for o in outcomes):
                 return outcomes
         name = var_to_name(ref.value)
+        if event:
+            return [_Outcome([ref], unresolved=("name", name))]
         if name in GENERIC_NAMES:
             target = self.index.lookup(name)
             return [_Outcome([ref], target, "heuristic")] if target else []
         return [self._name_outcome([ref], name, "heuristic")]
 
-    def _record(self, source: str, repo: str, outcome: _Outcome) -> None:
+    def _record(self, source: str, repo: str, outcome: _Outcome, reverse: bool = False) -> None:
         if outcome.unresolved:
             kind, value = outcome.unresolved
             acc = self.unresolved[(kind, value)]
@@ -277,16 +331,21 @@ class _Resolver:
         if target.startswith("external:"):
             host = target.split(":", 1)[1]
             self.externals[host] = Node(id=target, name=host, kind="external", layer="external")
-        elif outcome.inferred:
-            kind, envs = self.inferred.setdefault(target, (outcome.inferred, set()))
-            if outcome.env:
-                envs.add(outcome.env)
-        edge = self.edges[(source, target, outcome.chain[0].edge_type)]
+        else:
+            self._note_inferred(outcome)
+        ends = (target, source) if reverse else (source, target)
+        edge = self.edges[(*ends, outcome.chain[0].edge_type)]
         edge.exact = edge.exact or outcome.confidence == "exact"
         if outcome.env:
             edge.envs.add(outcome.env)
         for r in outcome.chain:
             edge.evidence.setdefault((r.path, r.line), self._evidence(r))
+
+    def _note_inferred(self, outcome: _Outcome) -> None:
+        if outcome.inferred and outcome.target:
+            _, envs = self.inferred.setdefault(outcome.target, (outcome.inferred, set()))
+            if outcome.env:
+                envs.add(outcome.env)
 
     def _evidence(self, ref: Reference) -> Evidence:
         repo = self.repos.get(ref.repo)

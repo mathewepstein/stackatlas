@@ -205,6 +205,17 @@ def test_fallback_name_ignored_when_url_resolves():
     assert [e.target for e in edges] == ["repo:orders"]
 
 
+def test_fallback_name_upgrades_a_heuristic_match_of_the_same_node():
+    refs = [ref("web", "https://orders.acme.com", path="build.gradle", fallback="orders-svc")]
+    aliases = {"orders": "repo:orders-svc", "orders-svc": "repo:orders-svc"}
+    edges, _, _ = run(refs, aliases)
+    assert [(e.target, e.confidence) for e in edges] == [("repo:orders-svc", "exact")]
+    edges, _, _ = run(refs, {"orders": "repo:orders-svc", "billing-api": "repo:billing-api"})
+    assert [(e.target, e.confidence) for e in edges] == [("repo:orders-svc", "heuristic")]
+    edges, _, _ = run(refs, aliases, tier=3)
+    assert [(e.target, e.confidence) for e in edges] == [("repo:orders-svc", "heuristic")]
+
+
 def test_unmatched_fallback_name_keeps_external_and_unresolved_host():
     refs = [ref("web", "https://x.acme.com", path="A.java", fallback="nope")]
     edges, externals, unresolved = run(refs, {})

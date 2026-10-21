@@ -16,13 +16,40 @@ describe('visible', () => {
   it('hides external and infra resource kinds by default', () => {
     const { nodes, edges } = visible(acme(), DEFAULT_FILTERS)
     const kinds = new Set(nodes.map((n) => n.kind))
-    for (const kind of ['external', 'function', 'queue', 'topic', 'bucket'] as const) {
+    for (const kind of ['external', 'function', 'bucket'] as const) {
       expect(kinds.has(kind)).toBe(false)
     }
     expect(ids(nodes)).toContain('gateway:edge/public')
     expect(ids(nodes)).toContain('datastore:postgres/orders-db')
     const shown = new Set(ids(nodes))
     expect(edges.every((e) => shown.has(e.source) && shown.has(e.target))).toBe(true)
+  })
+
+  it('shows queues and topics that exchange events with a visible node', () => {
+    const { nodes, edges } = visible(acme(), DEFAULT_FILTERS)
+    expect(ids(nodes)).toContain('queue:orders-events')
+    expect(ids(nodes)).toContain('topic:alerts')
+    expect(ids(nodes)).toContain('topic:price-changes')
+    expect(ids(nodes)).not.toContain('queue:notify-retry')
+    expect(edges.map(edgeId)).toContain('topic:alerts|queue:orders-events|event')
+    expect(edges.map(edgeId)).toContain('queue:orders-events|repo:orders-orchestration|event')
+  })
+
+  it('a queue reached only through a hidden node stays hidden', () => {
+    const graph = acme()
+    graph.nodes.push({
+      id: 'queue:orphan', name: 'orphan', kind: 'queue', layer: 'queue', repo: null, url: null,
+      sha: null, parent: null, envs: [], endpoints: [], ci: [],
+    })
+    graph.edges.push({
+      source: 'function:edge/notify', target: 'queue:orphan', type: 'event', confidence: 'exact',
+      envs: [], evidence: [], observed: null, traces: [],
+    })
+    expect(ids(visible(graph, DEFAULT_FILTERS).nodes)).not.toContain('queue:orphan')
+    const functions = DEFAULT_FILTERS.hiddenKinds.filter((k) => k !== 'function')
+    expect(ids(visible(graph, { ...DEFAULT_FILTERS, hiddenKinds: functions }).nodes)).toContain(
+      'queue:orphan',
+    )
   })
 
   it('shows every node when nothing is hidden', () => {
@@ -59,8 +86,11 @@ describe('visible', () => {
     expect(ids(nodes).sort()).toEqual([
       'repo:billing-api',
       'repo:inventory-svc',
+      'repo:orders-orchestration',
       'repo:orders-service',
+      'repo:platform-mono/admin-api',
       'repo:pricing-svc',
+      'topic:inventory-updates',
     ])
   })
 
@@ -77,6 +107,7 @@ describe('highlight', () => {
     const one = highlight(edges, { node: 'repo:orders-service' }, 1)!
     expect([...one.nodes].sort()).toEqual([
       'datastore:postgres/orders-db',
+      'queue:orders-events',
       'repo:inventory-svc',
       'repo:orders-orchestration',
       'repo:orders-service',

@@ -24,10 +24,10 @@ def test_scan_local_writes_graph(acme, tmp_path):
     assert result.exit_code == 0, result.output
     data = json.loads((out / "graph.json").read_text())
     assert data["org"] == "acme"
-    assert len(data["nodes"]) == 34
-    assert len(data["edges"]) == 38
+    assert len(data["nodes"]) == 39
+    assert len(data["edges"]) == 50
     assert len(json.loads((out / "unresolved.json").read_text())) == 4
-    assert "38 edges" in result.output and "4 unresolved" in result.output
+    assert "50 edges" in result.output and "4 unresolved" in result.output
 
 
 class _FakeSource:

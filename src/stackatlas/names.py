@@ -16,6 +16,14 @@ GENERIC_NAMES = {
 }
 
 
+def slug(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+
+
+def literal_parts(value: str, unknown: str = "*") -> str:
+    return "-".join(p for p in value.replace(unknown, "").split("-") if p)
+
+
 def relax(key: str) -> str:
     return CAMEL.sub("_", key).lower().replace(".", "_").replace("-", "_")
 

@@ -5,16 +5,19 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from stackatlas.aliases import build_index
+from stackatlas.aliases import TIER_DECLARED, AliasIndex, build_index, name_candidates
 from stackatlas.apps import find_apps
 from stackatlas.classify import classify_repo
 from stackatlas.config import Config
-from stackatlas.detectors import CiFile, Declared, run_detectors
+from stackatlas.detectors import CiFile, Declared, Spec, run_detectors
 from stackatlas.github import filter_repos, list_repos
+from stackatlas.names import slug
 from stackatlas.resolve import resolve
 from stackatlas.runtime import RuntimeData, apply_runtime
 from stackatlas.schema import CiEntry, Edge, Evidence, Graph, Kind, Node, Unresolved
 from stackatlas.sync import head_sha, sync_repo
+
+NON_OWNER_KINDS = {"infra", "unknown", "group"}
 
 
 @dataclass(frozen=True)
@@ -104,17 +107,22 @@ def build_graph(
     by_name = {r.name: r for r in repos}
     declared, deploy = _declared(detection.declared, by_name, config)
     index = build_index(repos, kinds, config, apps, declared)
+    endpoints, unowned = _place_specs(detection.specs, index, kinds, apps, by_name)
     edges, externals, unresolved = resolve(
         detection.refs, index, config, repos, apps, detection.owners
     )
     infra = [_infra_node(d, by_name.get(d.repo), config) for d in declared]
+    declared_ids = {d.id for d in declared}
+    externals = [n for n in externals if n.id not in declared_ids]
     nodes = _attach_ci(nodes, detection.ci, apps, by_name)
+    nodes = _attach_endpoints(nodes + infra + externals, endpoints)
     graph = Graph(
         org=org,
         generated_at=datetime.now(UTC),
-        nodes=sorted(nodes + infra + externals, key=lambda n: n.id),
+        nodes=sorted(nodes, key=lambda n: n.id),
         edges=_merge_edges(edges + deploy),
     )
+    unresolved = sorted(unresolved + unowned, key=lambda u: (-u.count, u.ref))
     if runtime:
         generic = {d.id for d in declared if d.generic}
         graph, unresolved = apply_runtime(graph, unresolved, index, config, runtime, generic)
@@ -176,6 +184,57 @@ def _declared(
         for (source, target), ev in sorted(evidence.items())
     ]
     return list(merged.values()), deploy
+
+
+def _place_specs(
+    specs: list[Spec],
+    index: AliasIndex,
+    kinds: dict[str, Kind],
+    apps: dict[str, list[str]],
+    repos: dict[str, ScannedRepo],
+) -> tuple[dict[str, set[str]], list[Unresolved]]:
+    endpoints: dict[str, set[str]] = defaultdict(set)
+    unowned: list[Unresolved] = []
+    for spec in specs:
+        home = _home_node(spec, apps)
+        names = name_candidates(slug(spec.title)) if spec.title else []
+        aliases = [*names, *spec.servers]
+        owner = next((t for a in aliases if (t := index.lookup_excluding(a, home))), None)
+        if owner:
+            for alias in aliases:
+                index.remove(alias, home)
+        elif spec.consumed:
+            continue
+        elif kinds.get(home.removeprefix("repo:")) in NON_OWNER_KINDS:
+            evidence = Evidence(
+                path=spec.path, line=spec.line, snippet=spec.snippet,
+                url=_evidence_url(repos.get(spec.repo), spec.path, spec.line),
+            )
+            ref = names[0] if names else spec.servers[0] if spec.servers else spec.path
+            unowned.append(Unresolved(ref=ref, kind="name", count=1, repos=[spec.repo],
+                                      evidence=[evidence]))
+            continue
+        else:
+            owner = home
+            for alias in aliases:
+                index.add(alias, home, TIER_DECLARED)
+        endpoints[owner].update(spec.endpoints)
+    return endpoints, unowned
+
+
+def _home_node(spec: Spec, apps: dict[str, list[str]]) -> str:
+    for sub in sorted(apps.get(spec.repo, []), key=len, reverse=True):
+        if spec.path.startswith(sub + "/"):
+            return f"repo:{spec.repo}/{sub}"
+    return f"repo:{spec.repo}"
+
+
+def _attach_endpoints(nodes: list[Node], endpoints: dict[str, set[str]]) -> list[Node]:
+    return [
+        n.model_copy(update={"endpoints": sorted(set(n.endpoints) | endpoints[n.id])})
+        if n.id in endpoints else n
+        for n in nodes
+    ]
 
 
 def _attach_ci(

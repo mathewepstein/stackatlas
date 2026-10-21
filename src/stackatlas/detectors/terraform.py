@@ -19,7 +19,8 @@ from stackatlas.detectors.base import (
     strip_env,
 )
 from stackatlas.detectors.ci import REGISTRY
-from stackatlas.names import GENERIC_NAMES, kebab, var_to_name
+from stackatlas.detectors.messaging import event_value, messaging_name
+from stackatlas.names import GENERIC_NAMES, kebab, literal_parts, var_to_name
 from stackatlas.tf import UNKNOWN, Block, Stack, find_stacks, unq
 
 CONFIG_KEY = re.compile(r"^/config/([^/_]+)_([^/]+)/(.+)$")
@@ -32,6 +33,7 @@ DOMAIN_REF = re.compile(
     r"(?:aws_apigatewayv2_domain_name|aws_api_gateway_domain_name)\.([A-Za-z0-9_-]+)"
 )
 ARCHIVE_REF = re.compile(r"data\.archive_file\.([A-Za-z0-9_-]+)")
+LAMBDA_REF = re.compile(r"aws_lambda_function\.([A-Za-z0-9_-]+)")
 MODULE_PATH = re.compile(r"path\.module\}?/([^\"'\s)]+)")
 DATASTORES = {
     "aws_db_instance": ("engine", "identifier", "db"),
@@ -69,9 +71,67 @@ class _Scan:
         self._lambdas()
         self._datastores()
         self._named()
+        self._messaging()
         self._config_store()
         self._codebuild()
         self._kubernetes()
+
+    def _messaging(self) -> None:
+        functions = self._function_nodes()
+        for m in self.stack.resources("aws_lambda_event_source_mapping"):
+            arn = self.stack.text(m.body.get("event_source_arn"))
+            found = messaging_name(arn) if arn else None
+            node = self._function(functions, m.body.get("function_name"))
+            if arn and found and found[0] and node:
+                self._wire(m, "event_source_arn", arn, found[0], source=node)
+        for s in self.stack.resources("aws_sns_topic_subscription"):
+            topic = self.stack.text(s.body.get("topic_arn"))
+            found = messaging_name(topic) if topic else None
+            if not topic or not found or found[0] != "topic":
+                continue
+            protocol = self.stack.text(s.body.get("protocol"))
+            if protocol == "lambda":
+                node = self._function(functions, s.body.get("endpoint"))
+                if node:
+                    self._wire(s, "topic_arn", topic, "topic", source=node)
+            elif protocol == "sqs":
+                queue = self.stack.text(s.body.get("endpoint"))
+                if queue and messaging_name(queue):
+                    self._wire(s, "topic_arn", topic, "topic", owner=queue)
+
+    def _function_nodes(self) -> dict[str, str]:
+        nodes = {}
+        for fn in self.stack.resources("aws_lambda_function"):
+            node = f"function:{self.logical}/{self._node_name(fn.name)}"
+            nodes[fn.name] = node
+            full = self.stack.text(fn.body.get("function_name"))
+            if full and UNKNOWN not in full:
+                nodes[full] = node
+        return nodes
+
+    def _function(self, nodes: dict[str, str], raw: Any) -> str | None:
+        label = _match(LAMBDA_REF, raw)
+        if label:
+            return nodes.get(label)
+        full = self.stack.text(raw)
+        return nodes.get(full) if full else None
+
+    def _wire(
+        self,
+        block: Block,
+        attr: str,
+        value: str,
+        engine: str,
+        source: str | None = None,
+        owner: str | None = None,
+    ) -> None:
+        line, text = self.stack.attr_line(block, attr)
+        self.out.refs.append(
+            Reference(
+                self.repo, block.path, line, scrub(text), "name", value, env=self.env,
+                edge_type="event", role="consume", engine=engine, source=source, owner=owner,
+            )
+        )
 
     def _kubernetes(self) -> None:
         for b in self.stack.resources("helm_release"):
@@ -201,6 +261,13 @@ class _Scan:
         if key and is_secret(key):
             return
         env = env or self.env
+        if event_value(key, value):
+            ref = Reference(
+                self.repo, path, line, scrub(text), "name", value, key=key, env=env,
+                edge_type="event", source=source, owner=owner,
+            )
+            self.out.refs.append(ref)
+            return
         if UNKNOWN in value:
             label = self._literal_label(value)
             if label:
@@ -308,7 +375,7 @@ class _Scan:
                 if not isinstance(variables, dict):
                     continue
                 for key, value in variables.items():
-                    if isinstance(value, str) and UNKNOWN not in value:
+                    if isinstance(value, str) and (UNKNOWN not in value or event_value(key, value)):
                         self._ref(fn, key, value, node, key=key)
             src = self._lambda_source(fn, archives)
             if src:
@@ -342,10 +409,9 @@ class _Scan:
     def _declare_named(
         self, block: Block, name_attr: str, prefix: str, kind: str, layer: str
     ) -> None:
-        full = self.stack.text(block.body.get(name_attr))
-        if not full or UNKNOWN in full:
-            full = block.name
-        short = strip_env(full, self.config.envs) or full
+        full = self.stack.text(block.body.get(name_attr)) or block.name
+        name = literal_parts(full) if UNKNOWN in full else full
+        short = strip_env(name or block.name, self.config.envs) or name or block.name
         self._declare(block, f"{prefix}{short}", short, kind, layer, [full, short])
 
     def _config_store(self) -> None:
@@ -363,9 +429,11 @@ class _Scan:
 
     def _config_entry(self, name: str, value: str, path: str, line: int, text: str) -> None:
         m = CONFIG_KEY.match(name)
-        if not m or UNKNOWN in value:
+        if not m:
             return
         app, env_token, key = m.groups()
+        if UNKNOWN in value and not event_value(key, value):
+            return
         env = canonical_env(env_token, self.config.envs) or self.env
         owner = "*" if app in self.config.shared_config_names else kebab(app)
         fallback = var_to_name(key)

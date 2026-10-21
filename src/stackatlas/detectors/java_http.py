@@ -4,6 +4,7 @@ from pathlib import Path
 from stackatlas.config import Config
 from stackatlas.detectors.base import (
     Reference,
+    balanced,
     canonical_env,
     clean_url,
     env_from_path,
@@ -44,24 +45,13 @@ def _source_refs(repo: str, rel: str, path: Path) -> list[Reference]:
     while i < len(lines):
         line = lines[i]
         if FEIGN.search(line) and not is_comment(line):
-            block, span = _balanced(lines, i)
+            block, span = balanced(lines, i)
             refs.extend(_feign_refs(repo, rel, i + 1, block))
             i += span
             continue
         refs.extend(_line_refs(repo, rel, i + 1, line))
         i += 1
     return refs
-
-
-def _balanced(lines: list[str], start: int) -> tuple[str, int]:
-    depth = 0
-    parts = []
-    for offset, line in enumerate(lines[start:]):
-        parts.append(line.strip())
-        depth += line.count("(") - line.count(")")
-        if depth <= 0:
-            return " ".join(parts), offset + 1
-    return " ".join(parts), len(lines) - start
 
 
 def _feign_refs(repo: str, rel: str, lineno: int, block: str) -> list[Reference]:

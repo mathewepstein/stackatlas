@@ -175,6 +175,27 @@ def test_resolve_token_prefers_env(monkeypatch):
     assert cli.resolve_token() == "from-env"
 
 
+def test_export_writes_static_site(acme, tmp_path):
+    out = tmp_path / "out"
+    site = tmp_path / "site"
+    runner.invoke(app, ["scan", "--local", str(acme), "--out", str(out)])
+    result = runner.invoke(app, ["export", str(out), str(site)])
+    assert result.exit_code == 0, result.output
+    assert (site / "index.html").exists()
+    assert (site / "graph.json").read_text() == (out / "graph.json").read_text()
+    assert (site / "unresolved.json").exists()
+    assert str(site) in result.output
+
+
+def test_export_refuses_non_empty_site(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    (site / "old.txt").write_text("x")
+    result = runner.invoke(app, ["export", str(tmp_path / "out"), str(site)])
+    assert result.exit_code != 0
+    assert "stackatlas scan" in result.output or "--force" in result.output
+
+
 def test_schema_command_prints_json_schema():
     result = runner.invoke(app, ["schema"])
     assert result.exit_code == 0

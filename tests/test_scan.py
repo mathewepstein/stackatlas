@@ -1,12 +1,10 @@
 import json
-from pathlib import Path
+
+from regen_golden import CONFIG, GOLDEN, format_graph, format_unresolved
 
 from stackatlas.config import Config
 from stackatlas.scan import build_graph, discover_local
 from stackatlas.schema import dump_graph, dump_unresolved
-
-GOLDEN = Path(__file__).parent / "golden"
-CONFIG = Config(layers={"orchestration": ["*-orchestration"]})
 
 JAVA = "src/main/java/com/acme/orders"
 RES = "src/main/resources"
@@ -104,6 +102,14 @@ def test_local_scan_matches_golden(acme):
     assert data == json.loads((GOLDEN / "acme.json").read_text())
     unresolved = json.loads(dump_unresolved(result.unresolved))
     assert unresolved == json.loads((GOLDEN / "acme-unresolved.json").read_text())
+
+
+def test_regen_golden_reproduces_the_committed_files(acme):
+    result = build_graph("acme", discover_local(acme), CONFIG)
+    graph = json.loads(dump_graph(result.graph))
+    assert format_graph(graph) == (GOLDEN / "acme.json").read_text()
+    unresolved = json.loads(dump_unresolved(result.unresolved))
+    assert format_unresolved(unresolved) == (GOLDEN / "acme-unresolved.json").read_text()
 
 
 def test_fixture_edges(acme):

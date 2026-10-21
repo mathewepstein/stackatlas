@@ -10,6 +10,7 @@ import typer
 import yaml
 
 from stackatlas.config import Config, load_config
+from stackatlas.export import ExportError, export_site
 from stackatlas.github import check_owner
 from stackatlas.runtime import (
     MissingCredentials,
@@ -176,6 +177,21 @@ def serve(
         pass
     finally:
         server.server_close()
+
+
+@app.command()
+def export(
+    out: Annotated[Path, typer.Argument(help="Directory holding graph.json.")] = Path("out"),
+    site: Annotated[Path, typer.Argument(help="Directory to write the site to.")] = Path("site"),
+    force: Annotated[bool, typer.Option(help="Replace a non-empty site directory.")] = False,
+) -> None:
+    """Write the viewer and graph into one directory for static hosting."""
+    try:
+        export_site(out, site, force=force)
+    except ExportError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"static site written to {site}")
 
 
 @app.command()

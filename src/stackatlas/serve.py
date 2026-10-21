@@ -25,13 +25,20 @@ class _Handler(SimpleHTTPRequestHandler):
         pass
 
 
+def check_inputs(out: Path, dist: Path) -> str | None:
+    if not (dist / "index.html").exists():
+        return f"viewer build not found at {dist}; run `pnpm -C viewer build`"
+    if not (out / "graph.json").exists():
+        return f"no graph.json in {out}; run `stackatlas scan` first"
+    return None
+
+
 def make_server(
     out: Path, port: int, dist: Path = VIEWER_DIST, host: str = "127.0.0.1"
 ) -> ThreadingHTTPServer:
-    if not (dist / "index.html").exists():
-        raise ServeError(f"viewer build not found at {dist}; run `pnpm -C viewer build`")
-    if not (out / "graph.json").exists():
-        raise ServeError(f"no graph.json in {out}; run `stackatlas scan` first")
+    problem = check_inputs(out, dist)
+    if problem:
+        raise ServeError(problem)
     handler = partial(_Handler, out=out.resolve(), directory=str(dist))
     try:
         return ThreadingHTTPServer((host, port), handler)

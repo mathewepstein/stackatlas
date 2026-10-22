@@ -175,6 +175,47 @@ def test_resolve_token_prefers_env(monkeypatch):
     assert cli.resolve_token() == "from-env"
 
 
+def test_scan_leaves_no_temp_files(acme, tmp_path):
+    out = tmp_path / "out"
+    result = runner.invoke(app, ["scan", "--local", str(acme), "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    assert sorted(p.name for p in out.iterdir()) == ["graph.json", "unresolved.json"]
+
+
+class _FakeServer:
+    served = False
+    server_address = ("127.0.0.1", 4321)
+
+    def serve_forever(self):
+        _FakeServer.served = True
+
+    def server_close(self):
+        pass
+
+
+def test_up_scans_then_serves(acme, tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    seen = {}
+
+    def fake_make_server(out_dir, port):
+        seen["graph_exists"] = (out_dir / "graph.json").exists()
+        seen["port"] = port
+        return _FakeServer()
+
+    monkeypatch.setattr(cli, "make_server", fake_make_server)
+    result = runner.invoke(app, ["up", "--local", str(acme), "--out", str(out), "--port", "4321"])
+    assert result.exit_code == 0, result.output
+    assert seen == {"graph_exists": True, "port": 4321}
+    assert _FakeServer.served
+    assert "50 edges" in result.output
+    assert "http://127.0.0.1:4321/" in result.output
+
+
+def test_up_requires_a_source(tmp_path):
+    result = runner.invoke(app, ["up", "--out", str(tmp_path)])
+    assert result.exit_code != 0
+
+
 def test_export_writes_static_site(acme, tmp_path):
     out = tmp_path / "out"
     site = tmp_path / "site"

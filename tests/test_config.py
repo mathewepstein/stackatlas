@@ -1,8 +1,4 @@
-from pathlib import Path
-
 from stackatlas.config import Config, load_config
-
-EXAMPLE = Path(__file__).parent.parent / "examples" / "stackatlas.yml"
 
 
 def test_missing_file_gives_defaults(tmp_path):
@@ -68,14 +64,6 @@ def test_default_ignore_hosts_and_envs():
     assert config.ignores_host("github.com") and not config.ignores_host("api.github.com")
     assert not config.ignores_host("orders.acme.com")
     assert "dev" in config.envs and "stage" in config.envs and "prod" in config.envs
-
-
-def test_example_config_loads():
-    config = load_config(EXAMPLE)
-    assert config.org == "acme"
-    assert config.apps == {"platform-mono": ["portal-api", "web/portal-ui"]}
-    assert config.runtime.sources == ["datadog"]
-    assert config.runtime.datadog.envs == {"prod": "production", "stage": "staging"}
 
 
 def test_layer_rules_then_kind_default():

@@ -2,9 +2,7 @@
 
 Map every frontend, service, orchestration, and infra layer in a GitHub org. Every edge links back to the file and line that proves it.
 
-`stackatlas scan` shallow-clones each repo, reads source and config for outbound references (HTTP base URLs, Feign clients, env vars, queue and topic names, JDBC URLs, Terraform gateway integrations, Helm values, CI deploy targets, OpenAPI specs), resolves each reference to the repo that answers to it, and writes `graph.json` plus an `unresolved.json` to-do list. `stackatlas serve` opens the interactive viewer; `stackatlas export` writes it as a static site. A Datadog service map can be overlaid to mark which static edges carry traffic.
-
-The acme fixture org from the test suite is published to https://mathewepstein.github.io/stackatlas/ by `.github/workflows/pages.yml`.
+`stackatlas scan` shallow-clones each repo, reads source and config for outbound references (HTTP base URLs, Feign clients, env vars, queue and topic names, JDBC URLs, Terraform gateway integrations, Helm values, CI deploy targets, OpenAPI specs), resolves each reference to the repo that answers to it, and writes `graph.json` plus an `unresolved.json` to-do list. `stackatlas serve` opens the interactive viewer; `stackatlas export` writes it as a static site for any host. A Datadog service map can be overlaid to mark which static edges carry traffic.
 
 ## Install
 
@@ -18,42 +16,15 @@ Until the first PyPI release: `pipx install git+https://github.com/mathewepstein
 
 ```
 stackatlas init                 # check GitHub (and Datadog) access, write stackatlas.yml
-stackatlas scan                 # clone + scan → out/graph.json, out/unresolved.json
-stackatlas serve out            # viewer at http://127.0.0.1:8000/
+stackatlas up                   # scan, then open the viewer at http://127.0.0.1:8000/
+stackatlas scan                 # scan only → out/graph.json, out/unresolved.json
+stackatlas serve out            # serve an existing scan
 stackatlas export out site      # viewer + data as one directory for static hosting
 ```
 
-`scan --org acme`, `scan --local ~/code` and `scan --runtime datadog` override what `init` wrote. `stackatlas schema` prints the graph.json JSON Schema.
+`up` and `scan` take `--org acme`, `--local ~/code` and `--runtime datadog` to override what `init` wrote. Output files are written to a temp file and renamed into place, so a rescan never leaves a half-written graph for a running `serve`. `stackatlas schema` prints the graph.json JSON Schema.
 
 The GitHub token is read from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token` (read-only: contents + metadata). Datadog keys are read from `DD_API_KEY`/`DD_APP_KEY` (or `DATADOG_API_KEY`/`DATADOG_APP_KEY`) and `DD_SITE`. Credentials are never written to disk.
-
-## GitHub Action
-
-Rebuild the map on a schedule and publish it to GitHub Pages from a repo in your org. The complete workflow is [`examples/map.yml`](examples/map.yml); the core is:
-
-```yaml
-- id: stackatlas
-  uses: mathewepstein/stackatlas@v0.1.0
-  with:
-    org: acme
-    token: ${{ secrets.STACKATLAS_TOKEN }}
-- uses: actions/upload-pages-artifact@v5
-  with:
-    path: ${{ steps.stackatlas.outputs.site }}
-- uses: actions/deploy-pages@v5
-```
-
-| Input | Default | Notes |
-|---|---|---|
-| `org` | required | GitHub org or user to scan |
-| `token` | required | A workflow's own `GITHUB_TOKEN` sees only its repo. Use a fine-grained PAT or GitHub App token with `contents: read` and `metadata: read` on every repo in the org. |
-| `config` | `stackatlas.yml` | Read from the calling repo |
-| `out`, `site` | `out`, `site` | Output directories; `site` is also the action's output |
-| `cache` | `true` | Keeps the shallow clones in the calling repo's Actions cache, keyed by org, so unchanged repos are skipped on the next run |
-| `datadog-api-key`, `datadog-app-key`, `datadog-site` | unset | When set, runtime traffic is overlaid (`--runtime datadog`) |
-| `python-version` | `3.12` | |
-
-Enable Pages once on the repo (Settings → Pages → Source: GitHub Actions). Use `@main` until the first tagged release exists.
 
 ## Viewer
 
@@ -69,7 +40,7 @@ Env var values whose key looks like a secret (`secret`, `token`, `password`, `ke
 
 ## Config
 
-Optional `stackatlas.yml` (a complete example is [`examples/stackatlas.yml`](examples/stackatlas.yml)):
+Optional `stackatlas.yml`:
 
 ```yaml
 include: ["*"]

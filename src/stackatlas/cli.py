@@ -11,6 +11,7 @@ import yaml
 
 from stackatlas.config import Config, load_config
 from stackatlas.export import ExportError, export_site
+from stackatlas.files import write_atomic
 from stackatlas.github import check_owner
 from stackatlas.runtime import (
     MissingCredentials,
@@ -36,6 +37,17 @@ RUNTIME_SOURCES: dict[str, Callable[[Config], RuntimeSource]] = {
     "datadog": lambda config: datadog_source(config, os.environ),
 }
 
+OrgOption = Annotated[str | None, typer.Option(help="GitHub org or user to scan.")]
+LocalOption = Annotated[Path | None, typer.Option(help="Directory of existing checkouts.")]
+OutOption = Annotated[Path, typer.Option(help="Output directory.")]
+ConfigOption = Annotated[Path | None, typer.Option(help="Path to stackatlas.yml.")]
+CacheOption = Annotated[Path, typer.Option(help="Clone cache.")]
+WorkersOption = Annotated[int, typer.Option(help="Parallel clones.")]
+RuntimeOption = Annotated[
+    list[str] | None, typer.Option(help="Runtime source to overlay: datadog.")
+]
+PortOption = Annotated[int, typer.Option(help="Port to listen on.")]
+
 
 def resolve_token() -> str | None:
     for var in ("GITHUB_TOKEN", "GH_TOKEN"):
@@ -50,17 +62,43 @@ def resolve_token() -> str | None:
 
 @app.command()
 def scan(
-    org: Annotated[str | None, typer.Option(help="GitHub org or user to scan.")] = None,
-    local: Annotated[Path | None, typer.Option(help="Directory of existing checkouts.")] = None,
-    out: Annotated[Path, typer.Option(help="Output directory.")] = Path("out"),
-    config: Annotated[Path | None, typer.Option(help="Path to stackatlas.yml.")] = None,
-    cache_dir: Annotated[Path, typer.Option(help="Clone cache.")] = DEFAULT_CACHE,
-    workers: Annotated[int, typer.Option(help="Parallel clones.")] = 8,
-    runtime: Annotated[
-        list[str] | None, typer.Option(help="Runtime source to overlay: datadog.")
-    ] = None,
+    org: OrgOption = None,
+    local: LocalOption = None,
+    out: OutOption = Path("out"),
+    config: ConfigOption = None,
+    cache_dir: CacheOption = DEFAULT_CACHE,
+    workers: WorkersOption = 8,
+    runtime: RuntimeOption = None,
 ) -> None:
     """Discover and classify every repo, then write graph.json."""
+    _scan(org, local, out, config, cache_dir, workers, runtime)
+
+
+@app.command()
+def up(
+    org: OrgOption = None,
+    local: LocalOption = None,
+    out: OutOption = Path("out"),
+    config: ConfigOption = None,
+    cache_dir: CacheOption = DEFAULT_CACHE,
+    workers: WorkersOption = 8,
+    runtime: RuntimeOption = None,
+    port: PortOption = 8000,
+) -> None:
+    """Scan, then serve the viewer."""
+    _scan(org, local, out, config, cache_dir, workers, runtime)
+    _serve(out, port)
+
+
+def _scan(
+    org: str | None,
+    local: Path | None,
+    out: Path,
+    config: Path | None,
+    cache_dir: Path,
+    workers: int,
+    runtime: list[str] | None,
+) -> None:
     cfg = load_config(config or Path("stackatlas.yml"))
     if org is None and local is None:
         org = cfg.org
@@ -93,8 +131,8 @@ def scan(
     result = build_graph(owner, repos, cfg, traces)
     graph = result.graph
     out.mkdir(parents=True, exist_ok=True)
-    (out / "graph.json").write_text(dump_graph(graph))
-    (out / "unresolved.json").write_text(dump_unresolved(result.unresolved))
+    write_atomic(out / "graph.json", dump_graph(graph))
+    write_atomic(out / "unresolved.json", dump_unresolved(result.unresolved))
     typer.echo(f"{len(graph.nodes)} nodes, {len(graph.edges)} edges → {out / 'graph.json'}")
     typer.echo(f"{len(result.unresolved)} unresolved → {out / 'unresolved.json'}")
     if traces:
@@ -162,9 +200,13 @@ def init(
 @app.command()
 def serve(
     out: Annotated[Path, typer.Argument(help="Directory holding graph.json.")] = Path("out"),
-    port: Annotated[int, typer.Option(help="Port to listen on.")] = 8000,
+    port: PortOption = 8000,
 ) -> None:
     """Serve the viewer for a scanned graph."""
+    _serve(out, port)
+
+
+def _serve(out: Path, port: int) -> None:
     try:
         server = make_server(out, port)
     except ServeError as exc:

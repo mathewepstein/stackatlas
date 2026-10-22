@@ -37,7 +37,6 @@ stackatlas = "stackatlas.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/mathewepstein/stackatlas"
-Demo = "https://mathewepstein.github.io/stackatlas/"
 Issues = "https://github.com/mathewepstein/stackatlas/issues"
 
 [tool.hatch.version]

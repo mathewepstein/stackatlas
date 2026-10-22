@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import tomllib
 from pathlib import Path
@@ -24,6 +25,15 @@ def read_text(path: Path) -> str:
 
 def read_lines(path: Path) -> list[str]:
     return read_text(path).splitlines()
+
+
+def write_atomic(path: Path, text: str) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    try:
+        tmp.write_text(text)
+        os.replace(tmp, path)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def unquote(value: str) -> str:
